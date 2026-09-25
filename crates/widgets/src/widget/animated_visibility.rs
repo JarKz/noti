@@ -13,6 +13,7 @@ use crate::{
     decorator::{content::Content, DecoratorExt, EventHitTestDecorator},
     events::{EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult, PendingEvent},
     stage::{
+        deinit::{Deinit, DeinitContext},
         draw::{Draw, DrawContext, Drawer},
         init::{Init, InitContext},
         invalidate::{Invalidate, InvalidateContext, InvalidateVisitor, RebuildStatus},
@@ -308,6 +309,17 @@ where
 
         if let Some(child) = &mut self.child {
             child.init(context);
+        }
+    }
+}
+
+impl<C> Deinit<C> for AnimatedVisibility
+where
+    C: DeinitContext,
+{
+    fn on_deinit(&mut self, context: &mut C) {
+        if let Some(state) = self.visibility_state {
+            <C as StateSubscription<WidgetId>>::unsubscribe(context, self.id, state);
         }
     }
 }

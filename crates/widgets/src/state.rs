@@ -108,6 +108,10 @@ impl StateInfo {
         self.subscribers.insert(subscriber.into());
     }
 
+    pub(crate) fn remove_subscriber<Id: Into<WidgetId>>(&mut self, subscriber: Id) {
+        self.subscribers.remove(&subscriber.into());
+    }
+
     pub(crate) fn subscribers(&self) -> impl Iterator<Item = &WidgetId> {
         self.subscribers.iter()
     }

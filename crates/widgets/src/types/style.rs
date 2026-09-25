@@ -111,6 +111,13 @@ impl StyleInfo {
         self.subscribers.insert(subscriber.into());
     }
 
+    pub(crate) fn remove_subscriber<Id>(&mut self, subscriber: Id)
+    where
+        Id: Into<WidgetId>,
+    {
+        self.subscribers.remove(&subscriber.into());
+    }
+
     pub(crate) fn subscribers(&self) -> impl Iterator<Item = &WidgetId> {
         self.subscribers.iter()
     }

@@ -9,6 +9,7 @@ use crate::{
     },
     events::{EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult, PendingEvent},
     stage::{
+        deinit::{Deinit, DeinitContext},
         draw::{draw_debug_bounds, Draw, DrawContext, Drawer},
         init::{Init, InitContext},
         invalidate::{Invalidate, InvalidateContext, InvalidateVisitor, RebuildStatus},
@@ -312,6 +313,8 @@ where
         });
     }
 }
+
+impl<C> Deinit<C> for FlexContainer where C: DeinitContext {}
 
 impl<C> Invalidate<C> for FlexContainer
 where

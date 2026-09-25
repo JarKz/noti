@@ -8,6 +8,7 @@ use crate::{
     context::{LoadExtent, ManageDirtyFlags, ManageIntrinsic, ManageWidgetData},
     events::{self, EventContext, EventHandling, EventHitTest},
     stage::{
+        deinit::{Deinit, DeinitContext},
         draw::{Draw, DrawContext, Drawer},
         init::{Init, InitContext},
         invalidate::{Invalidate, InvalidateContext, InvalidateVisitor, RebuildStatus},
@@ -93,6 +94,7 @@ where
 pub(crate) trait Widget<C>:
     WidgetBase<C>
     + Init<C>
+    + Deinit<C>
     + Invalidate<C>
     + Measure<C, f32>
     + Layout<C, f32>
@@ -101,6 +103,7 @@ pub(crate) trait Widget<C>:
     + EventHandling<C, f32>
 where
     C: InitContext
+        + DeinitContext
         + InvalidateContext
         + LoadExtent<f32, WidgetId>
         + DrawContext<f32>
@@ -112,6 +115,7 @@ impl<W, C> Widget<C> for W
 where
     W: WidgetBase<C>
         + Init<C>
+        + Deinit<C>
         + Invalidate<C>
         + Measure<C, f32>
         + Layout<C, f32>
@@ -119,6 +123,7 @@ where
         + EventHitTest<C, f32>
         + EventHandling<C, f32>,
     C: InitContext
+        + DeinitContext
         + InvalidateContext
         + LoadExtent<f32, WidgetId>
         + DrawContext<f32>

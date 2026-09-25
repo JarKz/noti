@@ -426,6 +426,12 @@ where
     where
         S: Into<State<T>>,
         T: 'static;
+
+    /// A provided id unsubscribes from state change by its descriptor.
+    fn unsubscribe<S, T>(&mut self, id: Id, state: S)
+    where
+        S: Into<State<T>>,
+        T: 'static;
 }
 
 impl<Id> StateSubscription<Id> for Context
@@ -443,6 +449,16 @@ where
             state_info.add_subscriber(id);
         }
     }
+
+    fn unsubscribe<S, T>(&mut self, id: Id, state: S)
+    where
+        S: Into<State<T>>,
+        T: 'static,
+    {
+        if let Some(state_info) = self.state_registry.get_mut(&state.into().descriptor) {
+            state_info.remove_subscriber(id);
+        }
+    }
 }
 
 pub(crate) trait StyleSubscription<C, Id>
@@ -452,6 +468,9 @@ where
 {
     /// A provided id subscribes to style changes by its class.
     fn subscribe(&mut self, id: Id, class: C);
+
+    /// A provided id unsubscribes to style changes by its class.
+    fn unsubscribe(&mut self, id: Id, class: C);
 }
 
 impl<C, Id> StyleSubscription<C, Id> for Context
@@ -469,6 +488,12 @@ where
                 style.add_subscriber(id);
                 style
             });
+    }
+
+    fn unsubscribe(&mut self, id: Id, class: C) {
+        self.style_registry
+            .entry(class.into())
+            .and_modify(|style_info| style_info.remove_subscriber(id));
     }
 }
 
@@ -549,6 +574,22 @@ where
 {
     fn register_key(&mut self, key: K, id: Id) {
         self.key_registry.insert(key.into(), id.into());
+    }
+}
+
+pub(crate) trait UnregisterKey<K>
+where
+    K: Into<WidgetKey>,
+{
+    fn unregister_key(&mut self, key: K);
+}
+
+impl<K> UnregisterKey<K> for Context
+where
+    K: Into<WidgetKey>,
+{
+    fn unregister_key(&mut self, key: K) {
+        self.key_registry.remove(&key.into());
     }
 }
 
@@ -836,5 +877,26 @@ where
             .get(&id.into())
             .map(AnimationProgress::is_finished)
             .unwrap_or(true)
+    }
+}
+
+pub(crate) trait ClearWidgetResources<Id>
+where
+    Id: Into<WidgetId>,
+{
+    /// Clears safely all runtime resources and information of a widget.
+    fn clear_widget_resources(&mut self, id: Id);
+}
+
+impl<Id> ClearWidgetResources<Id> for Context
+where
+    Id: Into<WidgetId>,
+{
+    fn clear_widget_resources(&mut self, id: Id) {
+        let widget_id = id.into();
+        self.widget_data_registry.remove(&widget_id);
+        self.measure_cache.remove(&widget_id);
+        self.dirty_registry.remove(&widget_id);
+        self.animation_regirsty.remove(&widget_id);
     }
 }

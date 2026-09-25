@@ -14,6 +14,7 @@ use crate::{
     decorator::{content::Content, DecoratorExt, DrawDecorator, MeasureDecorator},
     events::{EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult, PendingEvent},
     stage::{
+        deinit::{Deinit, DeinitContext},
         draw::{draw_debug_bounds, Drawer, UseColor},
         invalidate::{InvalidateVisitor, RebuildStatus},
         layout::{Layout, LayoutContext},
@@ -310,6 +311,17 @@ where
         runtime_information.paragraph = Some(paragraph);
 
         context.set_widget_data(self.id, Box::new(runtime_information));
+    }
+}
+
+impl<C> Deinit<C> for Text
+where
+    C: DeinitContext,
+{
+    fn on_deinit(&mut self, context: &mut C) {
+        if let Some(state) = self.state {
+            <C as StateSubscription<WidgetId>>::unsubscribe(context, self.id, state);
+        }
     }
 }
 
