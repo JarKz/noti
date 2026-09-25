@@ -1,21 +1,23 @@
-use std::cell::RefCell;
-
 use log::warn;
 use macros::widget;
 use shared::{
     text::{self, Entity, EntityKind},
+    unique::Unique,
     value::TryFromValue,
 };
 
 use crate::{
-    context::{ManageDirtyFlags, ManageIntrinsic, StateSubscription},
+    context::{
+        widget_data, widget_data_mut, ManageDirtyFlags, ManageIntrinsic, ManageWidgetData,
+        StateSubscription,
+    },
     decorator::{content::Content, DecoratorExt, DrawDecorator, MeasureDecorator},
     events::{EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult, PendingEvent},
     stage::{
         draw::{draw_debug_bounds, Drawer, UseColor},
         invalidate::{InvalidateVisitor, RebuildStatus},
         layout::{Layout, LayoutContext},
-        measure::{self, Constraints, Measure, MeasureContext, SizingMode},
+        measure::{self, Constraints, ManageMeasures, Measure, MeasureContext, SizingMode},
     },
     state::State,
     types::{
@@ -35,7 +37,7 @@ use crate::{
 /// A text widget that manages layout, styling, and rendering of text
 /// content within the UI.
 ///
-/// `WText` aims to be simple but flexible, providing a consistent API
+/// `Text` aims to be simple but flexible, providing a consistent API
 /// for compilation and querying its dimensions after layout.
 #[widget]
 #[make_widget_style(TextStyle, derive(bon::Builder, Debug, Clone))]
@@ -89,17 +91,19 @@ pub struct Text {
     #[style]
     color: Color,
 
+    #[builder(into)]
+    state: Option<State<text::Text>>,
+}
+
+/// The runtime information of [Text].
+struct TextRuntimeInformation {
     /// The actual text data that this widget is responsible for rendering.
     ///
     /// This field holds the characters and formatting instructions that
     /// make up your message. Whether it is a simple label or a complex
     /// paragraph with mixed styles, this is the primary source of
     /// information the widget uses to draw glyphs on the screen.
-    #[builder(default)]
     value: text::Text,
-
-    #[builder(into)]
-    state: Option<State<text::Text>>,
 
     /// A shared reference to the system's global font registry.
     ///
@@ -108,7 +112,6 @@ pub struct Text {
     /// allows the widget to efficiently resolve font styles and re-render
     /// text—such as when changing colors—without the memory overhead of
     /// duplicating font resources.
-    #[builder(skip)]
     font_collection: Option<skia_safe::textlayout::FontCollection>,
 
     /// The compiled layout of the text, used for rendering and hit-testing.
@@ -119,8 +122,7 @@ pub struct Text {
     /// area the text occupies. It is essential for interactive tasks,
     /// such as determining if a user is hovering over a specific link or
     /// character.
-    #[builder(skip)]
-    paragraph: Option<RefCell<skia_safe::textlayout::Paragraph>>,
+    paragraph: Option<skia_safe::textlayout::Paragraph>,
 
     /// A cached count of the lines required to display the current text.
     ///
@@ -129,7 +131,6 @@ pub struct Text {
     /// when the text exceeds its available space, allowing the widget
     /// to quickly rebuild its layout or apply wrapping rules without
     /// starting from scratch.
-    #[builder(skip)]
     total_lines: Option<usize>,
 }
 
@@ -252,8 +253,6 @@ impl Text {
 
     pub fn new() -> Self {
         Self {
-            value: text::Text::new_empty(),
-            paragraph: None,
             ..Default::default()
         }
     }
@@ -265,8 +264,11 @@ impl WidgetGetType for Text {
     }
 }
 
-impl WidgetSizingMode for Text {
-    fn sizing_mode(&self) -> SizingMode {
+impl<C> WidgetSizingMode<C> for Text
+where
+    C: ManageWidgetData<WidgetId>,
+{
+    fn sizing_mode(&self, _context: &C) -> SizingMode {
         SizingMode::Dynamic
     }
 }
@@ -276,11 +278,18 @@ where
     C: InitContext,
 {
     fn on_init(&mut self, context: &mut C) {
+        let mut runtime_information = TextRuntimeInformation {
+            value: text::Text::new_empty(),
+            font_collection: None,
+            paragraph: None,
+            total_lines: None,
+        };
+
         if let Some(state) = self.state {
             <C as StateSubscription<WidgetId>>::subscribe(context, self.id, state);
 
             if let Some(text) = context.get(state) {
-                self.value = text.clone();
+                runtime_information.value = text.clone();
             }
         }
 
@@ -288,23 +297,19 @@ where
             self.configure(text_style.clone());
         }
 
-        let font = self.font.clone().unwrap_or_default();
-        self.font_collection = context.get_font().into();
+        runtime_information.font_collection = context.get_font().into();
 
-        let mut text_style = skia_safe::textlayout::TextStyle::new();
-        text_style.set_font_families(&[&font.name]);
-        text_style.set_color(skia_safe::Color::BLACK);
-        text_style.set_font_style(match font.style {
-            FontStyle::Regular => skia_safe::FontStyle::normal(),
-            FontStyle::Bold => skia_safe::FontStyle::bold(),
-            FontStyle::Italic => skia_safe::FontStyle::italic(),
-            FontStyle::BoldItalic => skia_safe::FontStyle::bold_italic(),
-        });
-
-        let mut paragraph = self.build_paragraph(&text_style, Self::MAX_LINES);
+        let mut paragraph = self.build_paragraph(
+            &runtime_information.value,
+            &self.base_text_style(),
+            Self::MAX_LINES,
+            runtime_information.font_collection.as_ref(),
+        );
         paragraph.layout(paragraph.max_intrinsic_width());
 
-        self.paragraph = Some(RefCell::new(paragraph));
+        runtime_information.paragraph = Some(paragraph);
+
+        context.set_widget_data(self.id, Box::new(runtime_information));
     }
 }
 
@@ -319,12 +324,16 @@ where
     }
 
     fn on_rebuild(&mut self, context: &mut C) -> RebuildStatus {
+        let mut runtime_information: Unique<TextRuntimeInformation> =
+            widget_data_mut(context, self.id)
+                .expect("An associated runtime information must exist for Text.");
+
         if let Some(text) = self
             .state
             .and_then(|state| context.get(state))
-            .take_if(|text| **text != self.value)
+            .take_if(|text| **text != runtime_information.value)
         {
-            self.value = text.clone();
+            runtime_information.value = text.clone();
 
             RebuildStatus::NeedsMeasure
         } else {
@@ -335,13 +344,20 @@ where
     fn invalidate_children(&mut self, _visitor: &mut impl InvalidateVisitor<C>) {}
 }
 
-impl Measure<f32> for Text {
-    fn intrinsic_content<C>(&self, _context: &mut C) -> measure::Intrinsic<f32>
+impl<C> Measure<C, f32> for Text
+where
+    C: MeasureContext<f32>,
+{
+    fn intrinsic_content(&self, context: &mut C) -> measure::Intrinsic<f32>
     where
         C: ManageIntrinsic<f32, WidgetId> + ManageDirtyFlags<WidgetId>,
     {
+        let mut runtime_information: Unique<TextRuntimeInformation> =
+            widget_data_mut(context, self.id)
+                .expect("An associated runtime information must exist for Text.");
+
         Content::intrinsic_fn(|| {
-            let Some(mut paragraph) = self.paragraph.as_ref().map(RefCell::borrow_mut) else {
+            let Some(paragraph) = runtime_information.paragraph.as_mut() else {
                 return measure::Intrinsic::default();
             };
 
@@ -372,18 +388,18 @@ impl Measure<f32> for Text {
         .intrinsic()
     }
 
-    fn measure_children(&self, _visitor: &mut impl measure::MeasureVisitor<f32>) {}
+    fn measure_children(&self, _visitor: &mut impl measure::MeasureVisitor<C, f32>) {}
 
-    fn measure_content<C>(
-        &self,
-        _context: &mut C,
-        constraints: Constraints<Extent<f32>>,
-    ) -> Extent<f32>
+    fn measure_content(&self, context: &mut C, constraints: Constraints<Extent<f32>>) -> Extent<f32>
     where
-        C: MeasureContext<f32, WidgetId> + ManageDirtyFlags<WidgetId>,
+        C: ManageMeasures<f32, WidgetId> + ManageDirtyFlags<WidgetId>,
     {
+        let mut runtime_information: Unique<TextRuntimeInformation> =
+            widget_data_mut(context, self.id)
+                .expect("An associated runtime information must exist for Text.");
+
         Content::measure_fn(|child_constraints| {
-            let Some(mut paragraph) = self.paragraph.as_ref().map(RefCell::borrow_mut) else {
+            let Some(paragraph) = runtime_information.paragraph.as_mut() else {
                 return Extent::default();
             };
 
@@ -405,7 +421,7 @@ impl<C> Layout<C, f32> for Text
 where
     C: LayoutContext<f32>,
 {
-    fn layout(&mut self, context: &C) {
+    fn layout(&mut self, context: &mut C) {
         let Some(extent) = context.load(self.id) else {
             warn!(
                 "Text widget with id {} isn't measured! The widget may be incorrectly drawn.",
@@ -422,14 +438,31 @@ where
 
         let text_style = self.base_text_style();
 
-        if let Some(mut paragraph) = self.paragraph.as_ref().map(|para| para.borrow_mut()) {
+        let mut runtime_information: Unique<TextRuntimeInformation> =
+            widget_data_mut(context, self.id)
+                .expect("An associated runtime information must exist for Text.");
+
+        let TextRuntimeInformation {
+            ref mut paragraph,
+            ref value,
+            ref font_collection,
+            ..
+        } = &mut *runtime_information;
+
+        if let Some(paragraph) = paragraph.as_mut() {
             paragraph.layout(inner_extent.width);
 
             if paragraph.height() > inner_extent.height {
-                match self.try_fit_paragraph(&paragraph, inner_extent, &text_style) {
+                match self.try_fit_paragraph(
+                    paragraph,
+                    inner_extent,
+                    value,
+                    &text_style,
+                    font_collection.as_ref(),
+                ) {
                     Some((new_paragraph, total_lines)) => {
                         *paragraph = new_paragraph;
-                        self.total_lines = Some(total_lines);
+                        runtime_information.total_lines = Some(total_lines);
                     }
                     None => {
                         warn!(
@@ -473,7 +506,9 @@ impl Text {
         &self,
         paragraph: &skia_safe::textlayout::Paragraph,
         available_space: Extent<f32>,
+        text: &text::Text,
         base_text_style: &skia_safe::textlayout::TextStyle,
+        font_collection: Option<&skia_safe::textlayout::FontCollection>,
     ) -> Option<(skia_safe::textlayout::Paragraph, usize)> {
         let mut height = paragraph.height();
         let line_metrics = paragraph.get_line_metrics();
@@ -491,7 +526,8 @@ impl Text {
         if total_lines == 0 {
             None
         } else {
-            let mut fitted_paragraph = self.build_paragraph(base_text_style, total_lines);
+            let mut fitted_paragraph =
+                self.build_paragraph(text, base_text_style, total_lines, font_collection);
             fitted_paragraph.layout(available_space.width);
             Some((fitted_paragraph, total_lines))
         }
@@ -506,11 +542,13 @@ impl Text {
     /// Intended for internal use during `compile`.
     fn build_paragraph(
         &self,
+        text: &text::Text,
         base_text_style: &skia_safe::textlayout::TextStyle,
         max_lines: usize,
+        font_collection: Option<&skia_safe::textlayout::FontCollection>,
     ) -> skia_safe::textlayout::Paragraph {
         assert!(
-            self.font_collection.is_some(),
+            font_collection.is_some(),
             "FontCollection must be already set before building paragraph"
         );
 
@@ -518,22 +556,22 @@ impl Text {
 
         let mut paragraph_builder = skia_safe::textlayout::ParagraphBuilder::new(
             &paragraph_style,
-            self.font_collection.as_ref().unwrap(),
+            font_collection.unwrap(),
         );
         paragraph_builder.push_style(base_text_style);
 
-        let text = &self.value.body;
+        let plain_text = &text.body;
 
         let mut cursor = 0;
-        let mut end_stack = vec![text.len()];
+        let mut end_stack = vec![plain_text.len()];
         let mut current_entity_index = 0;
 
-        while cursor < text.len() {
+        while cursor < plain_text.len() {
             let nearest_end = unsafe { *end_stack.last().unwrap_unchecked() };
-            let entity = match self.value.entities.get(current_entity_index) {
+            let entity = match text.entities.get(current_entity_index) {
                 Some(entity) => entity,
                 None => {
-                    paragraph_builder.add_text(&text[cursor..nearest_end]);
+                    paragraph_builder.add_text(&plain_text[cursor..nearest_end]);
                     paragraph_builder.pop();
                     cursor = nearest_end;
                     end_stack.pop();
@@ -542,12 +580,12 @@ impl Text {
             };
 
             if entity.offset_in_byte > nearest_end {
-                paragraph_builder.add_text(&text[cursor..nearest_end]);
+                paragraph_builder.add_text(&plain_text[cursor..nearest_end]);
                 paragraph_builder.pop();
                 cursor = nearest_end;
                 end_stack.pop();
             } else {
-                paragraph_builder.add_text(&text[cursor..entity.offset_in_byte]);
+                paragraph_builder.add_text(&plain_text[cursor..entity.offset_in_byte]);
                 cursor = entity.offset_in_byte;
                 end_stack.push(entity.offset_in_byte + entity.length_in_byte);
                 current_entity_index += 1;
@@ -621,15 +659,7 @@ where
                 // cannot determine once the position. Especially when a banner moves from one place to
                 // another.
 
-                let font = self.font.clone().unwrap_or_default();
-                let mut base_text_style = skia_safe::textlayout::TextStyle::new();
-                base_text_style.set_font_families(&[&font.name]);
-                base_text_style.set_font_style(match font.style {
-                    FontStyle::Regular => skia_safe::FontStyle::normal(),
-                    FontStyle::Bold => skia_safe::FontStyle::bold(),
-                    FontStyle::Italic => skia_safe::FontStyle::italic(),
-                    FontStyle::BoldItalic => skia_safe::FontStyle::bold_italic(),
-                });
+                let mut base_text_style = self.base_text_style();
 
                 let mut paint = skia_safe::Paint::default();
                 paint.use_color(
@@ -640,11 +670,15 @@ where
 
                 base_text_style.set_foreground_paint(&paint);
 
-                let mut paragraph = if let Some(total_lines) = self.total_lines {
-                    self.build_paragraph(&base_text_style, total_lines)
-                } else {
-                    self.build_paragraph(&base_text_style, Self::MAX_LINES)
-                };
+                let runtime_information: &TextRuntimeInformation = widget_data(context, self.id)
+                    .expect("An associated runtime information must exist for Text.");
+
+                let mut paragraph = self.build_paragraph(
+                    &runtime_information.value,
+                    &base_text_style,
+                    runtime_information.total_lines.unwrap_or(Self::MAX_LINES),
+                    runtime_information.font_collection.as_ref(),
+                );
                 paragraph.layout(provided_extent.width);
 
                 let canvas = drawer.surface.canvas();
@@ -660,7 +694,7 @@ where
     }
 }
 
-impl<C> EventHitTest<f32, C> for Text
+impl<C> EventHitTest<C, f32> for Text
 where
     C: EventContext<f32>,
 {
@@ -675,7 +709,7 @@ where
     }
 }
 
-impl<C> EventHandling<f32, C> for Text
+impl<C> EventHandling<C, f32> for Text
 where
     C: EventContext<f32>,
 {

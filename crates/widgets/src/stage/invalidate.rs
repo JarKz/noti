@@ -1,7 +1,7 @@
 use crate::{
     context::{
         AnimationQuery, GetState, GetStyle, ManageAnimationRegistry, ManageDirtyFlags,
-        ScopedManageState,
+        ManageWidgetData, ScopedManageState,
     },
     stage::measure::SizingMode,
     types::{dirty_flags::DirtyFlags, WidgetId, WidgetStyle},
@@ -14,6 +14,7 @@ pub(crate) trait InvalidateContext:
     + AnimationQuery<WidgetId>
     + GetState
     + GetStyle
+    + ManageWidgetData<WidgetId>
     + ScopedManageState
 {
 }
@@ -24,6 +25,7 @@ impl<C> InvalidateContext for C where
         + AnimationQuery<WidgetId>
         + GetState
         + GetStyle
+        + ManageWidgetData<WidgetId>
         + ScopedManageState
 {
 }
@@ -40,7 +42,7 @@ where
     fn invalidate<W: Invalidate<C>>(&mut self, child: &mut W);
 }
 
-pub(crate) trait Invalidate<C>: WidgetInformation + WidgetSizingMode
+pub(crate) trait Invalidate<C>: WidgetInformation + WidgetSizingMode<C>
 where
     C: InvalidateContext,
 {
@@ -104,9 +106,9 @@ where
         }
 
         let mut visitor = ChildrenVisitor {
+            sizing_mode: self.sizing_mode(context),
             context,
             parent_df: &mut dirty_flags,
-            sizing_mode: self.sizing_mode(),
         };
         self.invalidate_children(&mut visitor);
 

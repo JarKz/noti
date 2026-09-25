@@ -1,13 +1,13 @@
 use log::warn;
 
 use crate::{
-    context::{AnimationQuery, GetDebugOptions, LoadExtent},
+    context::{AnimationQuery, GetDebugOptions, LoadExtent, ManageWidgetData},
     types::{extent::Extent, offset::Offset, Bgra, Color, WidgetId},
-    widget::{Widget, WidgetBase},
+    widget::{WidgetBase, WidgetEnum},
 };
 
 pub(crate) trait DrawContext<T>:
-    LoadExtent<T, WidgetId> + AnimationQuery<WidgetId> + GetDebugOptions
+    ManageWidgetData<WidgetId> + LoadExtent<T, WidgetId> + AnimationQuery<WidgetId> + GetDebugOptions
 where
     T: Default + Copy,
 {
@@ -15,12 +15,15 @@ where
 
 impl<C, T> DrawContext<T> for C
 where
-    C: LoadExtent<T, WidgetId> + AnimationQuery<WidgetId> + GetDebugOptions,
+    C: ManageWidgetData<WidgetId>
+        + LoadExtent<T, WidgetId>
+        + AnimationQuery<WidgetId>
+        + GetDebugOptions,
     T: Default + Copy,
 {
 }
 
-pub(crate) trait Draw<C, T>: WidgetBase
+pub(crate) trait Draw<C, T>: WidgetBase<C>
 where
     C: DrawContext<T>,
     T: Default + Copy + Into<f32>,
@@ -92,7 +95,7 @@ impl Drawer {
         &mut self,
         context: &C,
         offset: &Offset<f32>,
-        widget: &Widget,
+        widget: &WidgetEnum,
     ) -> skia_safe::Image
     where
         C: DrawContext<f32>,

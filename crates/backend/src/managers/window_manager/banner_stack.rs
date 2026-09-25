@@ -321,7 +321,7 @@ impl Banner {
 
         let layout = make_widget! {
             AnimatedVisibility {
-                state: visible_state,
+                visibility_state: visible_state,
                 class: Banner::NOTIFICATION_ANIMATED_VISIBILITY,
 
                 primary_animation: correct_animation(config, display.animation.primary.clone().into()),

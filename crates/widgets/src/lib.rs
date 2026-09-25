@@ -6,6 +6,7 @@ pub mod stage;
 pub mod state;
 pub mod types;
 pub mod widget;
+pub mod tree;
 
 use crate::{
     context::{
@@ -20,18 +21,18 @@ use crate::{
         measure::{Constraints, Measure},
     },
     types::{Extent, WidgetId, WidgetStyle},
-    widget::{Widget, WidgetInformation},
+    widget::{WidgetEnum, WidgetInformation},
 };
 
 pub struct UiRoot {
-    root_widget: Widget,
+    root_widget: WidgetEnum,
     event_manager: EventManager,
     context: Context,
     cached_constraints: Constraints<Extent<f32>>,
 }
 
 impl UiRoot {
-    pub fn new(mut root_widget: Widget, mut context: Context) -> Self {
+    pub fn new(mut root_widget: WidgetEnum, mut context: Context) -> Self {
         root_widget.init(&mut context);
 
         Self {
@@ -71,7 +72,7 @@ impl UiRoot {
 
         self.root_widget
             .measure(&mut self.context, self.cached_constraints);
-        self.root_widget.layout(&self.context);
+        self.root_widget.layout(&mut self.context);
     }
 
     pub fn draw(&self, offset: &types::Offset<f32>, drawer: &mut stage::draw::Drawer) {

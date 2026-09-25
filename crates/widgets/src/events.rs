@@ -5,7 +5,7 @@ use log::warn;
 use crate::{
     context::{LoadExtent, ScopedContext, ScopedManageState},
     types::{Extent, Point, WidgetId},
-    widget::{Widget, WidgetGetType, WidgetInformation},
+    widget::{WidgetEnum, WidgetGetType, WidgetInformation},
 };
 
 #[derive(Debug, Clone)]
@@ -59,7 +59,7 @@ impl EventManager {
         &mut self,
         context: &mut C,
         event: RawEvent,
-        widget_tree: &mut Widget,
+        widget_tree: &mut WidgetEnum,
     ) where
         C: EventContext<f32>,
     {
@@ -76,7 +76,7 @@ impl EventManager {
         }
     }
 
-    fn dispatch_mouse_move<C>(&mut self, context: &mut C, event: RawEvent, widget_tree: &mut Widget)
+    fn dispatch_mouse_move<C>(&mut self, context: &mut C, event: RawEvent, widget_tree: &mut WidgetEnum)
     where
         C: EventContext<f32>,
     {
@@ -109,7 +109,7 @@ impl EventManager {
         context: &mut C,
         event: RawEvent,
         mouse_button: MouseButton,
-        widget_tree: &mut Widget,
+        widget_tree: &mut WidgetEnum,
     ) where
         C: EventContext<f32>,
     {
@@ -144,7 +144,7 @@ impl EventManager {
         context: &mut C,
         event: RawEvent,
         mouse_button: MouseButton,
-        widget_tree: &mut Widget,
+        widget_tree: &mut WidgetEnum,
     ) where
         C: EventContext<f32>,
     {
@@ -403,7 +403,7 @@ enum DiffResult {
     Changed { position: usize },
 }
 
-pub(crate) trait EventHitTest<T, C>: WidgetInformation + WidgetGetType
+pub(crate) trait EventHitTest<C, T>: WidgetInformation + WidgetGetType
 where
     T: Default + Copy,
     C: EventContext<T>,
@@ -452,7 +452,7 @@ pub(crate) enum HitTestResult {
     Failed,
 }
 
-pub(crate) trait EventHandling<T, C>: WidgetInformation
+pub(crate) trait EventHandling<C, T>: WidgetInformation
 where
     C: EventContext<T>,
     T: Default + Copy,

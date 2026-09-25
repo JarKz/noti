@@ -1,7 +1,7 @@
 use crate::{
     context::{
-        GenerateId, GetFont, GetState, GetStyle, ManageAnimationRegistry, RegisterKey,
-        StateSubscription, StyleSubscription,
+        GenerateId, GetFont, GetState, GetStyle, ManageAnimationRegistry, ManageWidgetData,
+        RegisterKey, StateSubscription, StyleSubscription,
     },
     types::{identifiers::WidgetKey, WidgetClass, WidgetId},
     widget::WidgetBase,
@@ -13,6 +13,7 @@ pub(crate) trait InitContext:
     + GetState
     + StateSubscription<WidgetId>
     + StyleSubscription<WidgetClass, WidgetId>
+    + ManageWidgetData<WidgetId>
     + ManageAnimationRegistry<WidgetId>
     + GetStyle
     + GetFont
@@ -25,13 +26,14 @@ impl<C> InitContext for C where
         + GetState
         + StateSubscription<WidgetId>
         + StyleSubscription<WidgetClass, WidgetId>
+        + ManageWidgetData<WidgetId>
         + ManageAnimationRegistry<WidgetId>
         + GetStyle
         + GetFont
 {
 }
 
-pub(crate) trait Init<C>: WidgetBase
+pub(crate) trait Init<C>: WidgetBase<C>
 where
     C: InitContext,
 {

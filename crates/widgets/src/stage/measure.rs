@@ -5,7 +5,7 @@ use num_traits::FromPrimitive;
 use crate::{
     context::{
         AnimationQuery, LoadConstraints, LoadExtent, ManageConstraints, ManageDirtyFlags,
-        ManageExtent, ManageIntrinsic, SaveConstraints, SaveExtent,
+        ManageExtent, ManageIntrinsic, ManageWidgetData, SaveConstraints, SaveExtent,
     },
     types::{dirty_flags::DirtyFlags, Extent, Spacing, WidgetId},
     widget::WidgetInformation,
@@ -22,7 +22,20 @@ impl SizingMode {
     }
 }
 
-pub(crate) trait MeasureContext<T, Id>:
+pub(crate) trait MeasureContext<T>: ManageDirtyFlags<WidgetId> + ManageWidgetData<WidgetId>
+where
+    T: Default + Copy,
+{
+}
+
+impl<T, W> MeasureContext<T> for W
+where
+    W: ManageDirtyFlags<WidgetId> + ManageWidgetData<WidgetId>,
+    T: Default + Copy,
+{
+}
+
+pub(crate) trait ManageMeasures<T, Id>:
     ManageIntrinsic<T, Id> + ManageExtent<T, Id> + ManageConstraints<T, Id> + AnimationQuery<Id>
 where
     T: Default + Copy,
@@ -30,7 +43,7 @@ where
 {
 }
 
-impl<C, T, Id> MeasureContext<T, Id> for C
+impl<C, T, Id> ManageMeasures<T, Id> for C
 where
     T: Default + Copy,
     Id: Into<WidgetId>,
@@ -38,30 +51,32 @@ where
 {
 }
 
-pub(crate) trait MeasureVisitor<T>
+pub(crate) trait MeasureVisitor<C, T>
 where
     T: Default + Copy + PartialEq,
+    C: MeasureContext<T>,
 {
-    fn measure<W: Measure<T>>(&mut self, child: &W);
+    fn measure<W: Measure<C, T>>(&mut self, child: &W);
 }
 
-pub(crate) trait Measure<T>: WidgetInformation
+pub(crate) trait Measure<C, T>: WidgetInformation
 where
     T: Default + Copy + PartialEq,
+    C: MeasureContext<T>,
 {
-    fn intrinsic_content<C>(&self, context: &mut C) -> Intrinsic<T>
+    fn intrinsic_content(&self, context: &mut C) -> Intrinsic<T>
     where
-        C: ManageIntrinsic<T, WidgetId> + ManageDirtyFlags<WidgetId>;
+        C: ManageIntrinsic<T, WidgetId>;
 
-    fn measure_children(&self, visitor: &mut impl MeasureVisitor<T>);
+    fn measure_children(&self, visitor: &mut impl MeasureVisitor<C, T>);
 
-    fn measure_content<C>(&self, context: &mut C, constraints: Constraints<Extent<T>>) -> Extent<T>
+    fn measure_content(&self, context: &mut C, constraints: Constraints<Extent<T>>) -> Extent<T>
     where
-        C: MeasureContext<T, WidgetId> + ManageDirtyFlags<WidgetId>;
+        C: ManageMeasures<T, WidgetId>;
 
-    fn intrinsic<C>(&self, context: &mut C) -> Intrinsic<T>
+    fn intrinsic(&self, context: &mut C) -> Intrinsic<T>
     where
-        C: ManageIntrinsic<T, WidgetId> + ManageDirtyFlags<WidgetId>,
+        C: ManageIntrinsic<T, WidgetId>,
     {
         let dirty_flags = context.get_dirty_flags(self.get_id());
         let cached_intrinsic = context.load(self.get_id());
@@ -76,9 +91,9 @@ where
         intrinsic
     }
 
-    fn measure<C>(&self, context: &mut C, constraints: Constraints<Extent<T>>) -> Extent<T>
+    fn measure(&self, context: &mut C, constraints: Constraints<Extent<T>>) -> Extent<T>
     where
-        C: MeasureContext<T, WidgetId> + ManageDirtyFlags<WidgetId>,
+        C: ManageMeasures<T, WidgetId>,
     {
         let mut dirty_flags = context.get_dirty_flags(self.get_id());
         let constraints_changed =
@@ -101,12 +116,12 @@ where
                 context: &'a mut C,
             }
 
-            impl<'a, T, C> MeasureVisitor<T> for ChildrenVisitor<'a, C>
+            impl<'a, T, C> MeasureVisitor<C, T> for ChildrenVisitor<'a, C>
             where
                 T: Default + Copy + PartialEq,
-                C: MeasureContext<T, WidgetId> + ManageDirtyFlags<WidgetId>,
+                C: ManageMeasures<T, WidgetId> + MeasureContext<T>,
             {
-                fn measure<W: Measure<T>>(&mut self, child: &W) {
+                fn measure<W: Measure<C, T>>(&mut self, child: &W) {
                     let child_constraints =
                         <C as LoadConstraints<T, WidgetId>>::load(self.context, child.get_id())
                             .or_else(|| {

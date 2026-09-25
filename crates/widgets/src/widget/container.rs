@@ -2,20 +2,17 @@ use log::warn;
 use macros::widget_style;
 
 use crate::{
-    context::{LoadExtent, ManageDirtyFlags, ManageIntrinsic},
+    context::{LoadExtent, ManageIntrinsic, ManageWidgetData},
     decorator::{
         content::Content, DecoratorExt, DrawDecorator, EventHitTestDecorator, MeasureDecorator,
     },
-    events::{
-        EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult,
-        PendingEvent,
-    },
+    events::{EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult, PendingEvent},
     stage::{
         draw::{draw_debug_bounds, Draw, DrawContext, Drawer},
         init::{Init, InitContext},
         invalidate::{Invalidate, InvalidateContext, InvalidateVisitor, RebuildStatus},
         layout::{Layout, LayoutContext},
-        measure::{self, Constraints, Measure, MeasureContext, SizingMode},
+        measure::{self, Constraints, ManageMeasures, Measure, MeasureContext, SizingMode},
     },
     types::{
         alignment::Alignment,
@@ -28,7 +25,8 @@ use crate::{
         Color, Point,
     },
     widget::{
-        flex_container::FlexContainer, Widget, WidgetGetType, WidgetInformation, WidgetSizingMode,
+        flex_container::FlexContainer, WidgetEnum, WidgetGetType, WidgetInformation,
+        WidgetSizingMode,
     },
 };
 
@@ -121,7 +119,7 @@ pub struct Container {
     /// As a single-child provider, the container acts as a wrapper,
     /// applying its own alignment, background, and border rules to
     /// this inner element.
-    child: Option<Widget>,
+    child: Option<WidgetEnum>,
 }
 
 /// A targeted configuration set used to override or provide specific
@@ -165,8 +163,11 @@ impl WidgetGetType for Container {
     }
 }
 
-impl WidgetSizingMode for Container {
-    fn sizing_mode(&self) -> SizingMode {
+impl<C> WidgetSizingMode<C> for Container
+where
+    C: ManageWidgetData<WidgetId>,
+{
+    fn sizing_mode(&self, _context: &C) -> SizingMode {
         SizingMode::Fixed
     }
 }
@@ -207,10 +208,13 @@ where
     }
 }
 
-impl Measure<f32> for Container {
-    fn intrinsic_content<C>(&self, context: &mut C) -> measure::Intrinsic<f32>
+impl<C> Measure<C, f32> for Container
+where
+    C: MeasureContext<f32>,
+{
+    fn intrinsic_content(&self, context: &mut C) -> measure::Intrinsic<f32>
     where
-        C: ManageIntrinsic<f32, WidgetId> + ManageDirtyFlags<WidgetId>,
+        C: ManageIntrinsic<f32, WidgetId>,
     {
         Content::intrinsic_fn(|| {
             if let Some(child) = &self.child {
@@ -227,19 +231,15 @@ impl Measure<f32> for Container {
         .intrinsic()
     }
 
-    fn measure_children(&self, visitor: &mut impl measure::MeasureVisitor<f32>) {
+    fn measure_children(&self, visitor: &mut impl measure::MeasureVisitor<C, f32>) {
         if let Some(child) = &self.child {
             visitor.measure(child);
         }
     }
 
-    fn measure_content<C>(
-        &self,
-        context: &mut C,
-        constraints: Constraints<Extent<f32>>,
-    ) -> Extent<f32>
+    fn measure_content(&self, context: &mut C, constraints: Constraints<Extent<f32>>) -> Extent<f32>
     where
-        C: MeasureContext<f32, WidgetId> + ManageDirtyFlags<WidgetId>,
+        C: ManageMeasures<f32, WidgetId>,
     {
         Content::measure_fn(|container_constraints| {
             if let Some(child) = &self.child {
@@ -261,7 +261,7 @@ impl<C> Layout<C, f32> for Container
 where
     C: LayoutContext<f32>,
 {
-    fn layout(&mut self, context: &C) {
+    fn layout(&mut self, context: &mut C) {
         if context.load(self.id).is_none() {
             warn!("Container widget with id {} didn't measured!", *self.id);
         }
@@ -318,7 +318,7 @@ where
     }
 }
 
-impl<C> EventHitTest<f32, C> for Container
+impl<C> EventHitTest<C, f32> for Container
 where
     C: EventContext<f32>,
 {
@@ -355,7 +355,7 @@ where
     }
 }
 
-impl<C> EventHandling<f32, C> for Container
+impl<C> EventHandling<C, f32> for Container
 where
     C: EventContext<f32>,
 {

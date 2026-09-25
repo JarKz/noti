@@ -3,20 +3,17 @@ use std::ops::{Add, AddAssign, Sub, SubAssign};
 use log::warn;
 
 use crate::{
-    context::{LoadExtent, ManageDirtyFlags, ManageIntrinsic},
+    context::{LoadExtent, ManageIntrinsic, ManageWidgetData},
     decorator::{
         content::Content, DecoratorExt, DrawDecorator, EventHitTestDecorator, MeasureDecorator,
     },
-    events::{
-        EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult,
-        PendingEvent,
-    },
+    events::{EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult, PendingEvent},
     stage::{
         draw::{draw_debug_bounds, Draw, DrawContext, Drawer},
         init::{Init, InitContext},
         invalidate::{Invalidate, InvalidateContext, InvalidateVisitor, RebuildStatus},
         layout::{Layout, LayoutContext},
-        measure::{self, Constraints, Measure, MeasureContext, SizingMode},
+        measure::{self, Constraints, ManageMeasures, Measure, MeasureContext, SizingMode},
     },
     types::{
         alignment::{Alignment, Position},
@@ -29,7 +26,7 @@ use crate::{
         style::{Configure, StyleProperty, WidgetStyle},
         Color, Point,
     },
-    widget::{Widget, WidgetGetType, WidgetInformation, WidgetSizingMode},
+    widget::{WidgetEnum, WidgetGetType, WidgetInformation, WidgetSizingMode},
 };
 
 /// A container widget that arranges its child widgets along a single
@@ -116,7 +113,7 @@ pub struct FlexContainer {
     /// `direction`. The container calculates the space for each child
     /// based on the total available area and the specific alignment
     /// rules applied to the flex layout.
-    children: Vec<Widget>,
+    children: Vec<WidgetEnum>,
 }
 
 impl FlexContainer {
@@ -186,7 +183,6 @@ impl FlexContainer {
         }
     }
 
-
     /// Retrieves the alignment rules specifically for the primary axis.
     ///
     /// This unifies how the container treats positioning:
@@ -222,7 +218,7 @@ impl FlexContainer {
         callback: &mut F,
     ) where
         C: LoadExtent<f32, WidgetId>,
-        F: FnMut((usize, &Widget), Offset<f32>) -> IteratorProcess,
+        F: FnMut((usize, &WidgetEnum), Offset<f32>) -> IteratorProcess,
     {
         let mut plane = FCPlane::new(Offset::<f32>::default(), provided_extent, self.direction);
 
@@ -293,8 +289,11 @@ impl WidgetGetType for FlexContainer {
     }
 }
 
-impl WidgetSizingMode for FlexContainer {
-    fn sizing_mode(&self) -> SizingMode {
+impl<C> WidgetSizingMode<C> for FlexContainer
+where
+    C: ManageWidgetData<WidgetId>,
+{
+    fn sizing_mode(&self, _context: &C) -> SizingMode {
         SizingMode::Dynamic
     }
 }
@@ -335,10 +334,13 @@ where
     }
 }
 
-impl Measure<f32> for FlexContainer {
-    fn intrinsic_content<C>(&self, context: &mut C) -> measure::Intrinsic<f32>
+impl<C> Measure<C, f32> for FlexContainer
+where
+    C: MeasureContext<f32>,
+{
+    fn intrinsic_content(&self, context: &mut C) -> measure::Intrinsic<f32>
     where
-        C: ManageIntrinsic<f32, WidgetId> + ManageDirtyFlags<WidgetId>,
+        C: ManageIntrinsic<f32, WidgetId>,
     {
         Content::intrinsic_fn(|| {
             if self.children.is_empty() {
@@ -377,19 +379,15 @@ impl Measure<f32> for FlexContainer {
         .intrinsic()
     }
 
-    fn measure_children(&self, visitor: &mut impl measure::MeasureVisitor<f32>) {
+    fn measure_children(&self, visitor: &mut impl measure::MeasureVisitor<C, f32>) {
         for child in &self.children {
             visitor.measure(child);
         }
     }
 
-    fn measure_content<C>(
-        &self,
-        context: &mut C,
-        constraints: Constraints<Extent<f32>>,
-    ) -> Extent<f32>
+    fn measure_content(&self, context: &mut C, constraints: Constraints<Extent<f32>>) -> Extent<f32>
     where
-        C: MeasureContext<f32, WidgetId> + ManageDirtyFlags<WidgetId>,
+        C: ManageMeasures<f32, WidgetId>,
     {
         Content::measure_fn(|constraints| {
             let mut fixed_children = vec![];
@@ -398,7 +396,7 @@ impl Measure<f32> for FlexContainer {
             for child in &self.children {
                 let intrinsic = child.intrinsic(context);
 
-                match child.sizing_mode() {
+                match child.sizing_mode(context) {
                     SizingMode::Fixed => fixed_children.push((child, intrinsic)),
                     SizingMode::Dynamic => dynamic_children.push((child, intrinsic)),
                 }
@@ -519,7 +517,7 @@ impl<C> Layout<C, f32> for FlexContainer
 where
     C: LayoutContext<f32>,
 {
-    fn layout(&mut self, context: &C) {
+    fn layout(&mut self, context: &mut C) {
         if context.load(self.id).is_none() {
             warn!("FlexContainer with id {} didn't measured!", *self.id);
         }
@@ -580,7 +578,7 @@ where
     }
 }
 
-impl<C> EventHitTest<f32, C> for FlexContainer
+impl<C> EventHitTest<C, f32> for FlexContainer
 where
     C: EventContext<f32>,
 {
@@ -620,7 +618,7 @@ where
     }
 }
 
-impl<C> EventHandling<f32, C> for FlexContainer
+impl<C> EventHandling<C, f32> for FlexContainer
 where
     C: EventContext<f32>,
 {
