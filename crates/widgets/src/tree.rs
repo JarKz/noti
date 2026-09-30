@@ -22,15 +22,15 @@ pub trait GetCarefully<T> {
 /// The important note that you must know is that a forest have a single main root, and each
 /// operation where root doesn't mention implies main root. Otherwise explicitly mention an other
 /// root.
+#[derive(Default)]
 pub struct Forest<Id, Node>
 where
     Id: std::hash::Hash + Eq,
     Node: Get<Id>,
 {
     arena: Arena<Node>,
-    main_root: Id,
-    pending_root: Option<Id>,
-    detached_roots: Vec<Id>,
+    main_root: Option<NodeId>,
+    pending_root: Option<NodeId>,
     id_to_node: HashMap<Id, NodeId>,
 }
 
@@ -39,28 +39,6 @@ where
     Id: std::hash::Hash + Eq,
     Node: Get<Id>,
 {
-    /// Creates a new forest with a single main root node.
-    pub fn new(root_node: Node) -> Self
-    where
-        Id: Clone,
-    {
-        let root_id = root_node.get();
-
-        let mut arena = Arena::new();
-        let root_node_id = arena.new_node(root_node);
-
-        let mut id_to_node = HashMap::new();
-        id_to_node.insert(root_id.clone(), root_node_id);
-
-        Self {
-            arena,
-            main_root: root_id,
-            pending_root: None,
-            detached_roots: vec![],
-            id_to_node,
-        }
-    }
-
     /// Creates a new pending root that is not the main root. The pending tree can be used for a
     /// specific merge with the main tree.
     pub fn new_pending_root(&mut self, pending_root_node: Node)
@@ -72,7 +50,7 @@ where
         let pending_root_node_id = self.arena.new_node(pending_root_node);
         self.id_to_node
             .insert(pending_root_id.clone(), pending_root_node_id);
-        self.pending_root = Some(pending_root_id);
+        self.pending_root = Some(pending_root_node_id);
     }
 
     /// Creates and attaches a node to a specific parent node.
@@ -89,58 +67,46 @@ where
         true
     }
 
-    /// Detaches a subtree by a particular node using its id. The subtree moves to detached trees
-    /// with its root as the detached root.
-    ///
-    /// The operation cannot be applied to one of roots: main root, detached tree roots, pending
-    /// tree roots. If provided node id is one of root, this method will silently do nothing.
-    pub fn detach_subtree(&mut self, node_id: Id) {
-        if self.is_root(&node_id) {
-            return;
-        }
-
-        let Some(subtree_node_id) = self.id_to_node.get(&node_id) else {
-            return;
-        };
-
-        subtree_node_id.detach(&mut self.arena);
-        self.detached_roots.push(node_id);
+    pub fn main_tree_root(&self) -> Option<&NodeId> {
+        self.main_root.as_ref()
     }
 
-    /// Eventually removes and deletes a subtree by a particular node using its id. The subtree
-    /// after this operation won't exist and it cannot be undone.
-    ///
-    /// The operation cannot be applied to one of roots: main root, detached tree roots, pending
-    /// tree roots. If provided node id is one of root, this method will silently do nothing.
-    pub fn remove_subtree(&mut self, node_id: Id) {
-        if self.is_root(&node_id) {
-            return;
+    pub fn update_main_tree_root(&mut self, new_root: NodeId) {
+        if let Some(main_root) = self.main_root {
+            main_root.remove_subtree(&mut self.arena);
         }
 
-        let Some(subtree_node_id) = self.id_to_node.get(&node_id).cloned() else {
-            return;
-        };
+        self.main_root = Some(new_root);
+    }
 
-        for node_edge in subtree_node_id.traverse(&self.arena) {
-            match node_edge {
-                indextree::NodeEdge::Start(node_id) => {
-                    let node = self.arena.get_data(node_id).unwrap();
-                    self.id_to_node.remove(&node.get());
-                }
-                indextree::NodeEdge::End(_) => (),
-            }
-        }
+    pub fn pending_tree_root(&self) -> Option<&NodeId> {
+        self.pending_root.as_ref()
+    }
 
-        subtree_node_id.remove_subtree(&mut self.arena);
+    pub fn node(&self, node_id: &NodeId) -> Option<&Node> {
+        self.arena.get_data(*node_id)
+    }
+
+    pub fn node_mut(&mut self, node_id: &NodeId) -> Option<&mut Node> {
+        self.arena.get_data_mut(*node_id)
+    }
+
+    pub fn children_of(&self, node_id: &NodeId) -> indextree::Children<'_, Node> {
+        node_id.children(&self.arena)
     }
 
     /// Checks whether a node is one of roots.
-    fn is_root(&self, node_id: &Id) -> bool {
-        &self.main_root == node_id
+    fn is_root(&self, node_id: &NodeId) -> bool {
+        self.main_root
+            .as_ref()
+            .is_some_and(|root_id| root_id == node_id)
             || self
                 .pending_root
                 .as_ref()
                 .is_some_and(|pending_root_id| pending_root_id == node_id)
-            || self.detached_roots.iter().any(|id| id == node_id)
+    }
+
+    pub fn traverse(&self, node_id: &NodeId) -> indextree::Traverse<'_, Node> {
+        node_id.traverse(&self.arena)
     }
 }

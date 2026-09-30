@@ -1,5 +1,5 @@
 use log::warn;
-use macros::widget_style;
+use macros::{widget, widget_style};
 
 use crate::{
     context::{LoadExtent, ManageIntrinsic, ManageWidgetData},
@@ -22,7 +22,7 @@ use crate::{
         identifiers::{WidgetClass, WidgetId, WidgetKey},
         offset::Offset,
         spacing::Spacing,
-        style::{Configure, StyleProperty, WidgetStyle},
+        style::{Configure, WidgetStyle},
         Color, Point,
     },
     widget::{
@@ -43,59 +43,17 @@ use crate::{
 ///
 /// Use this when you need a UI element to stay exactly the same,
 /// like a fixed icon or a status light that should never grow or shrink.
-#[derive(bon::Builder)]
+#[widget(kind = container)]
+#[derive(bon::Builder, Default)]
 pub struct Container {
-    /// An optional identifier for this widget.
-    ///
-    /// If left empty, an ID will be automatically generated during
-    /// compilation. Setting this manually allows the widget to be
-    /// targeted by external configurations and makes the widget tree
-    /// significantly easier to navigate during debugging.
-    #[builder(skip)]
-    id: WidgetId,
-
-    #[builder(into)]
-    key: Option<WidgetKey>,
-
-    #[builder(into, default)]
-    class: WidgetClass,
-
-    /// The fill color or gradient applied to the entire area of the container.
-    ///
-    /// This defines the visual surface that sits behind any nested child
-    /// widgets. It covers the full rectangular area of the container,
-    /// providing a solid or decorative base. If not set, the container
-    /// is typically transparent, allowing the parent's background to
-    /// show through.
-    #[builder(with = |v: Color| StyleProperty::Explicit(v), default)]
-    background_color: StyleProperty<Color>,
-
-    /// The visual frame and corner shaping applied to the container's edges.
-    ///
-    /// This field defines the stroke thickness, color, and curvature of
-    /// the widget's boundary. It provides a clear visual distinction
-    /// between the container's internal content and the rest of the
-    /// layout.
-    #[builder(with = |v: Border| StyleProperty::Explicit(v), default)]
-    border: StyleProperty<Border>,
-
     /// The internal spacing between the widget's boundary box and its actual content.
     ///
     /// This field defines a buffer zone (Top, Right, Bottom, Left) that
     /// effectively shrinks the available area for the widget's content
     /// without changing the widget's outer dimensions. It ensures
     /// content does not touch the edges of its container.
-    #[builder(with = |v: Spacing| StyleProperty::Explicit(v), default)]
-    spacing: StyleProperty<Spacing>,
-
-    /// The rules for positioning content within the available internal space.
-    ///
-    /// This determines how the content (like text or nested widgets)
-    /// anchors itself when the container is larger than the content
-    /// it holds. It manages the distribution of "extra" space along
-    /// the horizontal and vertical axes.
-    #[builder(with = |v: Alignment| StyleProperty::Explicit(v), default)]
-    alignment: StyleProperty<Alignment>,
+    #[style]
+    spacing: Spacing,
 
     /// A hard-coded, fixed dimension for this axis.
     ///
@@ -103,8 +61,8 @@ pub struct Container {
     /// of its content's size or the parent's constraints. This effectively
     /// "locks" the widget's size, preventing it from expanding or
     /// shrinking during the layout pass.
-    #[builder(with = |v: usize| StyleProperty::Explicit(v), default)]
-    width: StyleProperty<usize>,
+    #[style]
+    width: usize,
 
     /// A hard-coded, fixed dimension for this axis.
     ///
@@ -112,8 +70,8 @@ pub struct Container {
     /// of its content's size or the parent's constraints. This effectively
     /// "locks" the widget's size, preventing it from expanding or
     /// shrinking during the layout pass.
-    #[builder(with = |v: usize| StyleProperty::Explicit(v), default)]
-    height: StyleProperty<usize>,
+    #[style]
+    height: usize,
 
     /// The single nested widget managed by this container.
     ///
@@ -138,24 +96,6 @@ pub struct ContainerStyle {
     pub border: Border,
     pub spacing: Spacing,
     pub alignment: Alignment,
-}
-
-impl WidgetInformation for Container {
-    fn get_id(&self) -> WidgetId {
-        self.id
-    }
-
-    fn set_id(&mut self, id: WidgetId) {
-        self.id = id;
-    }
-
-    fn get_key(&self) -> Option<&WidgetKey> {
-        self.key.as_ref()
-    }
-
-    fn get_class(&self) -> WidgetClass {
-        self.class.clone()
-    }
 }
 
 impl WidgetGetType for Container {

@@ -4,3 +4,4 @@ pub mod deinit;
 pub mod invalidate;
 pub mod layout;
 pub mod measure;
+pub mod rebuild;
