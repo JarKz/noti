@@ -1,12 +1,9 @@
 use shared::unique::Unique;
 
 use crate::{
-    stage::measure::{Constraints, Intrinsic},
-    state::{MutableState, State, StateInfo},
-    types::{
-        dirty_flags::DirtyFlags, identifiers::WidgetKey, Extent, StyleInfo, WidgetClass, WidgetId,
-        WidgetStyle,
-    },
+    stage::measure::{Constraints, Intrinsic}, state::{MutableState, State, StateInfo}, tree::Forest, types::{
+        Extent, StyleInfo, WidgetClass, WidgetId, WidgetStyle, dirty_flags::DirtyFlags, identifiers::WidgetKey
+    }, widget::WidgetEnum
 };
 use std::{any::Any, collections::HashMap, time::Duration};
 
@@ -27,6 +24,9 @@ pub struct Context {
 
     /// The number counter for generating state descriptors.
     state_descriptor_counter: usize,
+
+    /// Forest of widget trees, containing main and pending trees.
+    widget_forest: Forest<WidgetId, WidgetEnum>,
 
     /// Registry of arbitrary data associated with particular widgets.
     widget_data_registry: HashMap<WidgetId, Box<dyn Any>>,
@@ -60,6 +60,7 @@ impl Context {
             id_counter: 1,
             state_descriptor_counter: 1,
             font_collection,
+            widget_forest: Forest::default(),
             widget_data_registry: HashMap::new(),
             measure_cache: HashMap::new(),
             state_registry: HashMap::new(),

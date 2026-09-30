@@ -22,7 +22,6 @@ pub trait GetCarefully<T> {
 /// The important note that you must know is that a forest have a single main root, and each
 /// operation where root doesn't mention implies main root. Otherwise explicitly mention an other
 /// root.
-#[derive(Default)]
 pub struct Forest<Id, Node>
 where
     Id: std::hash::Hash + Eq,
@@ -34,11 +33,30 @@ where
     id_to_node: HashMap<Id, NodeId>,
 }
 
+impl<Id, Node> Default for Forest<Id, Node>
+where
+    Id: std::hash::Hash + Eq,
+    Node: Get<Id>,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<Id, Node> Forest<Id, Node>
 where
     Id: std::hash::Hash + Eq,
     Node: Get<Id>,
 {
+    pub fn new() -> Self {
+        Self {
+            arena: Arena::new(),
+            main_root: None,
+            pending_root: None,
+            id_to_node: HashMap::default(),
+        }
+    }
+
     /// Creates a new pending root that is not the main root. The pending tree can be used for a
     /// specific merge with the main tree.
     pub fn new_pending_root(&mut self, pending_root_node: Node)
