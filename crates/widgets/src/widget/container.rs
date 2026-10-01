@@ -11,7 +11,7 @@ use crate::{
         deinit::{Deinit, DeinitContext},
         draw::{draw_debug_bounds, Draw, DrawContext, Drawer},
         init::{Init, InitContext},
-        invalidate::{Invalidate, InvalidateContext, InvalidateVisitor, RebuildStatus},
+        invalidate::{Invalidate, InvalidateContext, RebuildStatus},
         layout::{Layout, LayoutContext},
         measure::{self, Constraints, ManageMeasures, Measure, MeasureContext, SizingMode},
     },
@@ -26,7 +26,7 @@ use crate::{
         Color, Point,
     },
     widget::{
-        flex_container::FlexContainer, WidgetEnum, WidgetGetType, WidgetInformation,
+        flex_container::FlexContainer, WidgetGetType, WidgetInformation, WidgetInformationContext,
         WidgetSizingMode,
     },
 };
@@ -72,13 +72,6 @@ pub struct Container {
     /// shrinking during the layout pass.
     #[style]
     height: usize,
-
-    /// The single nested widget managed by this container.
-    ///
-    /// As a single-child provider, the container acts as a wrapper,
-    /// applying its own alignment, background, and border rules to
-    /// this inner element.
-    child: Option<WidgetEnum>,
 }
 
 /// A targeted configuration set used to override or provide specific
@@ -106,7 +99,7 @@ impl WidgetGetType for Container {
 
 impl<C> WidgetSizingMode<C> for Container
 where
-    C: ManageWidgetData<WidgetId>,
+    C: WidgetInformationContext,
 {
     fn sizing_mode(&self, _context: &C) -> SizingMode {
         SizingMode::Fixed
@@ -143,12 +136,6 @@ where
     fn on_rebuild(&mut self, _context: &mut C) -> RebuildStatus {
         RebuildStatus::NothingChanged
     }
-
-    fn invalidate_children(&mut self, visitor: &mut impl InvalidateVisitor<C>) {
-        if let Some(child) = &mut self.child {
-            visitor.invalidate(child);
-        }
-    }
 }
 
 impl<C> Measure<C, f32> for Container
@@ -172,12 +159,6 @@ where
             self.height.as_option().map(|&height| height as f32),
         )
         .intrinsic()
-    }
-
-    fn measure_children(&self, visitor: &mut impl measure::MeasureVisitor<C, f32>) {
-        if let Some(child) = &self.child {
-            visitor.measure(child);
-        }
     }
 
     fn measure_content(&self, context: &mut C, constraints: Constraints<Extent<f32>>) -> Extent<f32>

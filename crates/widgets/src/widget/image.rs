@@ -11,14 +11,14 @@ use shared::{
 };
 
 use crate::{
-    context::{widget_data, widget_data_mut, ManageIntrinsic, ManageWidgetData, StateSubscription},
+    context::{widget_data, widget_data_mut, ManageIntrinsic, StateSubscription},
     decorator::{content::Content, DecoratorExt, DrawDecorator, MeasureDecorator},
     events::{EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult, PendingEvent},
     stage::{
         deinit::{Deinit, DeinitContext},
         draw::{draw_debug_bounds, Draw, DrawContext, Drawer},
         init::{Init, InitContext},
-        invalidate::{Invalidate, InvalidateContext, InvalidateVisitor, RebuildStatus},
+        invalidate::{Invalidate, InvalidateContext, RebuildStatus},
         layout::{Layout, LayoutContext},
         measure::{self, Constraints, ManageMeasures, Measure, MeasureContext, SizingMode},
     },
@@ -31,7 +31,7 @@ use crate::{
         style::{Configure, WidgetStyle},
         Border, Point,
     },
-    widget::{WidgetGetType, WidgetSizingMode},
+    widget::{WidgetGetType, WidgetInformationContext, WidgetSizingMode},
 };
 
 const DEFAULT_ICON_THEME: &str = "hicolor";
@@ -147,7 +147,7 @@ impl WidgetGetType for Image {
 
 impl<C> WidgetSizingMode<C> for Image
 where
-    C: ManageWidgetData<WidgetId>,
+    C: WidgetInformationContext,
 {
     fn sizing_mode(&self, _context: &C) -> SizingMode {
         SizingMode::Dynamic
@@ -210,8 +210,6 @@ where
             RebuildStatus::NothingChanged
         }
     }
-
-    fn invalidate_children(&mut self, _visitor: &mut impl InvalidateVisitor<C>) {}
 }
 
 impl<C> Measure<C, f32> for Image
@@ -243,8 +241,6 @@ where
         .spacing(self.margin.unwrap_or_default())
         .intrinsic()
     }
-
-    fn measure_children(&self, _visitor: &mut impl measure::MeasureVisitor<C, f32>) {}
 
     fn measure_content(&self, context: &mut C, constraints: Constraints<Extent<f32>>) -> Extent<f32>
     where

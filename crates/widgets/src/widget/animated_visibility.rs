@@ -7,8 +7,7 @@ use crate::{
     animations::{AnimationFilter, AnimationKind, Easing},
     context::{
         widget_data, widget_data_mut, AnimationDirection, AnimationProgress,
-        ManageAnimationRegistry, ManageIntrinsic, ManageWidgetData, ScopedContext,
-        StateSubscription,
+        ManageAnimationRegistry, ManageIntrinsic, ScopedContext, StateSubscription,
     },
     decorator::{content::Content, DecoratorExt, EventHitTestDecorator},
     events::{EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult, PendingEvent},
@@ -16,18 +15,16 @@ use crate::{
         deinit::{Deinit, DeinitContext},
         draw::{Draw, DrawContext, Drawer},
         init::{Init, InitContext},
-        invalidate::{Invalidate, InvalidateContext, InvalidateVisitor, RebuildStatus},
+        invalidate::{Invalidate, InvalidateContext, RebuildStatus},
         layout::{Layout, LayoutContext},
-        measure::{
-            self, Constraints, Intrinsic, ManageMeasures, Measure, MeasureContext, SizingMode,
-        },
+        measure::{Constraints, Intrinsic, ManageMeasures, Measure, MeasureContext, SizingMode},
     },
     state::State,
     types::{
         dirty_flags::DirtyFlags, identifiers::WidgetKey, style::Configure, Extent, Offset, Point,
         WidgetClass, WidgetId, WidgetStyle,
     },
-    widget::{WidgetEnum, WidgetGetType, WidgetInformation, WidgetSizingMode},
+    widget::{WidgetGetType, WidgetInformationContext, WidgetSizingMode},
 };
 
 #[widget(kind = minimal)]
@@ -51,9 +48,6 @@ pub struct AnimatedVisibility {
 
     #[style]
     secondary_spatial_change: SpatialChangeDefinition,
-
-    #[builder(into)]
-    child: Option<WidgetEnum>,
 }
 
 #[widget_style(kind = minimal,targets(AnimatedVisibility))]
@@ -253,7 +247,7 @@ impl WidgetGetType for AnimatedVisibility {
 
 impl<C> WidgetSizingMode<C> for AnimatedVisibility
 where
-    C: ManageWidgetData<WidgetId>,
+    C: WidgetInformationContext,
 {
     fn sizing_mode(&self, context: &C) -> SizingMode {
         let runtime_information: &AVRuntimeInformation = widget_data(context, self.id)
@@ -262,9 +256,10 @@ where
         match runtime_information.phase {
             VisibilityPhase::SpatialChange => SizingMode::Dynamic,
             VisibilityPhase::Transition | VisibilityPhase::Showing | VisibilityPhase::Hidden => {
-                self.child
-                    .as_ref()
-                    .map(|child| child.sizing_mode(context))
+                context
+                    .children_of(self.id)
+                    .first()
+                    .and_then(|child| context.widget_sizing_mode(child.get_id()))
                     .unwrap_or(SizingMode::Fixed)
             }
         }
@@ -306,10 +301,6 @@ where
         }
 
         context.set_widget_data(self.id, Box::new(runtime_information));
-
-        if let Some(child) = &mut self.child {
-            child.init(context);
-        }
     }
 }
 
@@ -400,42 +391,33 @@ where
             RebuildStatus::NothingChanged
         }
     }
-
-    fn invalidate_children(&mut self, visitor: &mut impl InvalidateVisitor<C>) {
-        if let Some(child) = &mut self.child {
-            visitor.invalidate(child);
-        }
-    }
 }
 
 impl<C> Measure<C, f32> for AnimatedVisibility
 where
-    C: MeasureContext<WidgetId>,
+    C: MeasureContext<f32>,
 {
     fn intrinsic_content(&self, context: &mut C) -> Intrinsic<f32>
     where
         C: ManageIntrinsic<f32, WidgetId>,
     {
-        self.child
-            .as_ref()
-            .map(|child| child.intrinsic(context))
+        context
+            .children_of(self.id)
+            .first()
+            .map(|w| w.get_id())
+            .and_then(|child_widget_id| context.widget_intrinsic(child_widget_id))
             .unwrap_or_default()
-    }
-
-    fn measure_children(&self, visitor: &mut impl measure::MeasureVisitor<C, f32>) {
-        if let Some(child) = &self.child {
-            visitor.measure(child);
-        }
     }
 
     fn measure_content(&self, context: &mut C, constraints: Constraints<Extent<f32>>) -> Extent<f32>
     where
         C: ManageMeasures<f32, WidgetId>,
     {
-        let mut used_extent = self
-            .child
-            .as_ref()
-            .map(|child| child.measure(context, constraints))
+        let mut used_extent = context
+            .children_of(self.id)
+            .first()
+            .map(|w| w.get_id())
+            .and_then(|child_widget_id| context.measure_widget(child_widget_id, constraints))
             .unwrap_or_default();
 
         let runtime_information: &AVRuntimeInformation = widget_data(context, self.id)
@@ -463,11 +445,7 @@ impl<C> Layout<C, f32> for AnimatedVisibility
 where
     C: LayoutContext<f32>,
 {
-    fn layout(&mut self, context: &mut C) {
-        if let Some(child) = &mut self.child {
-            child.layout(context);
-        }
-    }
+    fn layout(&mut self, _context: &mut C) {}
 }
 
 impl<C> Draw<C, f32> for AnimatedVisibility
@@ -487,13 +465,15 @@ where
         match runtime_information.phase {
             VisibilityPhase::Hidden | VisibilityPhase::SpatialChange => (),
             VisibilityPhase::Transition => {
-                if let Some(child) = &self.child {
+                if let Some(child_widget_id) =
+                    context.children_of(self.id).first().map(|w| w.get_id())
+                {
                     let animation_definition = self
                         .animation_properties()
                         .resolve_animation(runtime_information.resolve_animation_appearance());
-                    let widget_image = drawer.draw_into_offscreen(context, offset, child);
+                    let widget_image = drawer.draw_into_offscreen(context, offset, child_widget_id);
 
-                    let child_extent = context.load(child.get_id()).unwrap_or_default();
+                    let child_extent = context.load(child_widget_id).unwrap_or_default();
                     let progress = context.animation_progress(self.id).unwrap_or_default();
                     let paint = animation_definition.kind.filter(
                         widget_image,
@@ -506,8 +486,10 @@ where
                 }
             }
             VisibilityPhase::Showing => {
-                if let Some(child) = &self.child {
-                    child.draw(context, offset, drawer);
+                if let Some(child_widget_id) =
+                    context.children_of(self.id).first().map(|w| w.get_id())
+                {
+                    context.draw_widget(child_widget_id, offset, drawer)
                 }
             }
         }
@@ -553,17 +535,22 @@ where
     ) -> HitTestResult {
         Content::hit_test_fn(
             |local_coords: Point<f32>, _provided_extent: Extent<f32>, router: &mut EventRouter| {
-                if let Some(child) = &self.child {
-                    let result = child.hit_test(context, local_coords, router);
-
-                    match result {
+                if let Some(hit_result) = context
+                    .children_of(self.id)
+                    .first()
+                    .map(|w| w.get_id())
+                    .and_then(|child_widget_id| {
+                        context.hit_test_widget(child_widget_id, local_coords, router)
+                    })
+                {
+                    match hit_result {
                         HitTestResult::Hit => {
                             router.set_next_index(self.id, 0);
                         }
                         HitTestResult::Missed | HitTestResult::Failed => (),
                     }
 
-                    result
+                    hit_result
                 } else {
                     HitTestResult::Missed
                 }
@@ -601,8 +588,8 @@ where
             }
         }
 
-        if let Some(child) = &mut self.child {
-            child.route_events(context, router);
+        if let Some(child_widget_id) = context.children_of(self.id).first().map(|w| w.get_id()) {
+            context.route_events_to_widget(child_widget_id, router);
         }
     }
 }

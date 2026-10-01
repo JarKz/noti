@@ -2,11 +2,11 @@ pub mod animations;
 pub mod context;
 pub mod decorator;
 pub mod events;
+pub mod forest;
 pub mod stage;
 pub mod state;
 pub mod types;
 pub mod widget;
-pub mod tree;
 
 use crate::{
     context::{
@@ -15,28 +15,23 @@ use crate::{
     events::{EventManager, RawEvent},
     stage::{
         draw::Draw,
-        init::Init,
         invalidate::Invalidate,
         layout::Layout,
         measure::{Constraints, Measure},
     },
     types::{Extent, WidgetId, WidgetStyle},
-    widget::{WidgetEnum, WidgetInformation},
+    widget::WidgetInformation,
 };
 
 pub struct UiRoot {
-    root_widget: WidgetEnum,
     event_manager: EventManager,
     context: Context,
     cached_constraints: Constraints<Extent<f32>>,
 }
 
 impl UiRoot {
-    pub fn new(mut root_widget: WidgetEnum, mut context: Context) -> Self {
-        root_widget.init(&mut context);
-
+    pub fn new(context: Context) -> Self {
         Self {
-            root_widget,
             event_manager: EventManager::new(),
             context,
             cached_constraints: Constraints::new_tight(Extent::default()),

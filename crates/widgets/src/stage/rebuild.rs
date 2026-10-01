@@ -6,11 +6,11 @@ use std::{
 use indextree::NodeId;
 
 use crate::{
+    forest::{Forest, Get, GetCarefully},
     stage::{
         deinit::{Deinit, DeinitContext},
         init::{Init, InitContext},
     },
-    tree::{Forest, Get, GetCarefully},
     types::identifiers::WidgetKey,
     widget::WidgetGetType,
 };
@@ -83,11 +83,7 @@ where
         keyed_diffing(self, &mut rebuild_context);
         perform_operation_set(self, &rebuild_context, context);
 
-        self.update_main_tree_root(
-            *self
-                .pending_tree_root()
-                .expect("There must be a root of a pending tree"),
-        );
+        self.promote_pending_tree_root();
     }
 }
 
@@ -281,16 +277,20 @@ fn perform_operation_set<Id, Node, C>(
     for operation in &rebuild_context.operation_set {
         match operation {
             RebuildOperation::Initialize { node_id } => {
-                forest
+                let node = forest
                     .node_mut(node_id)
-                    .expect("There must be a node in forest!")
-                    .init(context);
+                    .expect("There must be a node in forest!");
+                node.init(context);
+                let id = node.get();
+                forest.make_relation(id, *node_id);
             }
             RebuildOperation::Deinitialize { node_id } => {
-                forest
+                let node = forest
                     .node_mut(node_id)
-                    .expect("There must be a node in forest!")
-                    .deinit(context);
+                    .expect("There must be a node in forest!");
+                let id = node.get();
+                node.deinit(context);
+                forest.remove_relation(id);
             }
             RebuildOperation::Reuse { old_node, new_node } => {
                 let old_node = forest

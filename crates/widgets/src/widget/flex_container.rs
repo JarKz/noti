@@ -12,7 +12,7 @@ use crate::{
         deinit::{Deinit, DeinitContext},
         draw::{draw_debug_bounds, Draw, DrawContext, Drawer},
         init::{Init, InitContext},
-        invalidate::{Invalidate, InvalidateContext, InvalidateVisitor, RebuildStatus},
+        invalidate::{Invalidate, InvalidateContext, RebuildStatus},
         layout::{Layout, LayoutContext},
         measure::{self, Constraints, ManageMeasures, Measure, MeasureContext, SizingMode},
     },
@@ -27,7 +27,9 @@ use crate::{
         style::{Configure, StyleProperty, WidgetStyle},
         Color, Point,
     },
-    widget::{WidgetEnum, WidgetGetType, WidgetInformation, WidgetSizingMode},
+    widget::{
+        WidgetEnum, WidgetGetType, WidgetInformation, WidgetInformationContext, WidgetSizingMode,
+    },
 };
 
 /// A container widget that arranges its child widgets along a single
@@ -107,14 +109,6 @@ pub struct FlexContainer {
     /// vertical direction, they are stacked on top of each other
     /// in a column.
     direction: Direction,
-
-    /// The list of widgets to be arranged and managed by this container.
-    ///
-    /// These children are positioned sequentially along the chosen
-    /// `direction`. The container calculates the space for each child
-    /// based on the total available area and the specific alignment
-    /// rules applied to the flex layout.
-    children: Vec<WidgetEnum>,
 }
 
 impl FlexContainer {
@@ -292,7 +286,7 @@ impl WidgetGetType for FlexContainer {
 
 impl<C> WidgetSizingMode<C> for FlexContainer
 where
-    C: ManageWidgetData<WidgetId>,
+    C: WidgetInformationContext,
 {
     fn sizing_mode(&self, _context: &C) -> SizingMode {
         SizingMode::Dynamic
@@ -328,12 +322,6 @@ where
 
     fn on_rebuild(&mut self, _context: &mut C) -> RebuildStatus {
         RebuildStatus::NothingChanged
-    }
-
-    fn invalidate_children(&mut self, visitor: &mut impl InvalidateVisitor<C>) {
-        for child in &mut self.children {
-            visitor.invalidate(child);
-        }
     }
 }
 
@@ -380,12 +368,6 @@ where
         .spacing(self.spacing.unwrap_or_default())
         .border(self.border.clone().unwrap_or_default())
         .intrinsic()
-    }
-
-    fn measure_children(&self, visitor: &mut impl measure::MeasureVisitor<C, f32>) {
-        for child in &self.children {
-            visitor.measure(child);
-        }
     }
 
     fn measure_content(&self, context: &mut C, constraints: Constraints<Extent<f32>>) -> Extent<f32>

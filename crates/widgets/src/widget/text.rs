@@ -7,16 +7,13 @@ use shared::{
 };
 
 use crate::{
-    context::{
-        widget_data, widget_data_mut, ManageDirtyFlags, ManageIntrinsic, ManageWidgetData,
-        StateSubscription,
-    },
+    context::{widget_data, widget_data_mut, ManageDirtyFlags, ManageIntrinsic, StateSubscription},
     decorator::{content::Content, DecoratorExt, DrawDecorator, MeasureDecorator},
     events::{EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult, PendingEvent},
     stage::{
         deinit::{Deinit, DeinitContext},
         draw::{draw_debug_bounds, Drawer, UseColor},
-        invalidate::{InvalidateVisitor, RebuildStatus},
+        invalidate::RebuildStatus,
         layout::{Layout, LayoutContext},
         measure::{self, Constraints, ManageMeasures, Measure, MeasureContext, SizingMode},
     },
@@ -31,7 +28,7 @@ use crate::{
     },
     widget::{
         Draw, DrawContext, Init, InitContext, Invalidate, InvalidateContext, WidgetGetType,
-        WidgetSizingMode,
+        WidgetInformationContext, WidgetSizingMode,
     },
 };
 
@@ -267,7 +264,7 @@ impl WidgetGetType for Text {
 
 impl<C> WidgetSizingMode<C> for Text
 where
-    C: ManageWidgetData<WidgetId>,
+    C: WidgetInformationContext,
 {
     fn sizing_mode(&self, _context: &C) -> SizingMode {
         SizingMode::Dynamic
@@ -352,8 +349,6 @@ where
             RebuildStatus::NothingChanged
         }
     }
-
-    fn invalidate_children(&mut self, _visitor: &mut impl InvalidateVisitor<C>) {}
 }
 
 impl<C> Measure<C, f32> for Text
@@ -400,8 +395,6 @@ where
         .intrinsic()
     }
 
-    fn measure_children(&self, _visitor: &mut impl measure::MeasureVisitor<C, f32>) {}
-
     fn measure_content(&self, context: &mut C, constraints: Constraints<Extent<f32>>) -> Extent<f32>
     where
         C: ManageMeasures<f32, WidgetId> + ManageDirtyFlags<WidgetId>,
@@ -434,6 +427,8 @@ where
     C: LayoutContext<f32>,
 {
     fn layout(&mut self, context: &mut C) {
+        // TODO: it must be called independently by dirty flag
+
         let Some(extent) = context.load(self.id) else {
             warn!(
                 "Text widget with id {} isn't measured! The widget may be incorrectly drawn.",

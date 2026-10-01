@@ -1,9 +1,19 @@
+use indextree::NodeId;
 use shared::unique::Unique;
 
 use crate::{
-    stage::measure::{Constraints, Intrinsic}, state::{MutableState, State, StateInfo}, tree::Forest, types::{
-        Extent, StyleInfo, WidgetClass, WidgetId, WidgetStyle, dirty_flags::DirtyFlags, identifiers::WidgetKey
-    }, widget::WidgetEnum
+    events::EventContext,
+    forest::Forest,
+    stage::{
+        draw::DrawContext,
+        measure::{Constraints, Intrinsic, MeasureContext},
+    },
+    state::{MutableState, State, StateInfo},
+    types::{
+        dirty_flags::DirtyFlags, identifiers::WidgetKey, Extent, StyleInfo, WidgetClass, WidgetId,
+        WidgetStyle,
+    },
+    widget::{Widget, WidgetInformationContext},
 };
 use std::{any::Any, collections::HashMap, time::Duration};
 
@@ -26,7 +36,7 @@ pub struct Context {
     state_descriptor_counter: usize,
 
     /// Forest of widget trees, containing main and pending trees.
-    widget_forest: Forest<WidgetId, WidgetEnum>,
+    widget_forest: Forest<WidgetId, Box<dyn Widget<Context>>>,
 
     /// Registry of arbitrary data associated with particular widgets.
     widget_data_registry: HashMap<WidgetId, Box<dyn Any>>,
@@ -216,6 +226,89 @@ pub trait GetDebugOptions {
 impl GetDebugOptions for Context {
     fn get_debug_options(&self) -> &DebugOptions {
         &self.debug_options
+    }
+}
+
+impl WidgetInformationContext for Context {
+    fn widget_sizing_mode(&self, widget_id: WidgetId) -> Option<crate::stage::measure::SizingMode> {
+        self.widget_forest
+            .node_by_id(widget_id)
+            .map(|w| w.sizing_mode(self))
+    }
+}
+
+pub trait WidgetTreeCreation {
+    fn create_widget(&mut self, widget: Box<dyn Widget<Context>>) -> NodeId;
+    fn append_child(&mut self, parent: NodeId, child: NodeId);
+    fn set_pending_root(&mut self, root: NodeId);
+}
+
+impl WidgetTreeCreation for Context {
+    fn create_widget(&mut self, widget: Box<dyn Widget<Context>>) -> NodeId {
+        self.widget_forest.create_node(widget)
+    }
+
+    fn append_child(&mut self, parent: NodeId, child: NodeId) {
+        self.widget_forest.append_node(parent, child)
+    }
+
+    fn set_pending_root(&mut self, root: NodeId) {
+        self.widget_forest.set_pending_tree_root(root)
+    }
+}
+
+pub(crate) trait WidgetTreeAccess<Id>
+where
+    Id: Into<WidgetId>,
+{
+    fn widget_by(&self, id: Id) -> Option<&dyn Widget<Context>>;
+    fn widget_by_mut(&mut self, id: Id) -> Option<Unique<dyn Widget<Context>>>;
+
+    fn parent_of(&self, id: Id) -> Option<&dyn Widget<Context>>;
+    fn parent_of_mut(&mut self, id: Id) -> Option<Unique<dyn Widget<Context>>>;
+
+    fn children_of(&self, id: Id) -> Vec<&dyn Widget<Context>>;
+    fn children_of_mut(&mut self, id: Id) -> Vec<Unique<dyn Widget<Context>>>;
+}
+
+impl<Id> WidgetTreeAccess<Id> for Context
+where
+    Id: Into<WidgetId>,
+{
+    fn widget_by(&self, id: Id) -> Option<&dyn Widget<Context>> {
+        self.widget_forest.node_by_id(id.into()).map(|w| &**w)
+    }
+
+    fn widget_by_mut(&mut self, id: Id) -> Option<Unique<dyn Widget<Context>>> {
+        self.widget_forest
+            .node_by_id_mut(id.into())
+            .map(|mut w| unsafe { Unique::from_mut(&mut **w) })
+    }
+
+    fn parent_of(&self, id: Id) -> Option<&dyn Widget<Context>> {
+        self.widget_forest.parent_by_id(id.into()).map(|w| &**w)
+    }
+
+    fn parent_of_mut(&mut self, id: Id) -> Option<Unique<dyn Widget<Context>>> {
+        self.widget_forest
+            .parent_by_id_mut(id.into())
+            .map(|mut w| unsafe { Unique::from_mut(&mut **w) })
+    }
+
+    fn children_of(&self, id: Id) -> Vec<&dyn Widget<Context>> {
+        self.widget_forest
+            .children_by_id(id.into())
+            .into_iter()
+            .map(|w| &**w)
+            .collect()
+    }
+
+    fn children_of_mut(&mut self, id: Id) -> Vec<Unique<dyn Widget<Context>>> {
+        self.widget_forest
+            .children_by_id_mut(id.into())
+            .into_iter()
+            .map(|mut w| unsafe { Unique::from_mut(&mut **w) })
+            .collect()
     }
 }
 
@@ -823,6 +916,56 @@ where
         self.measure_cache
             .get(&id.into())
             .and_then(|cache| cache.constraints)
+    }
+}
+
+impl MeasureContext<f32> for Context {
+    fn widget_intrinsic(&mut self, widget_id: WidgetId) -> Option<Intrinsic<f32>> {
+        self.widget_forest
+            .node_by_id_mut(widget_id)
+            .map(|w| w.intrinsic(self))
+    }
+
+    fn measure_widget(
+        &mut self,
+        widget_id: WidgetId,
+        constraints: Constraints<Extent<f32>>,
+    ) -> Option<Extent<f32>> {
+        self.widget_forest
+            .node_by_id_mut(widget_id)
+            .map(|w| w.measure(self, constraints))
+    }
+}
+
+impl DrawContext<f32> for Context {
+    fn draw_widget(
+        &self,
+        widget_id: WidgetId,
+        offset: &crate::types::Offset<f32>,
+        drawer: &mut crate::stage::draw::Drawer,
+    ) {
+        self.widget_forest
+            .node_by_id(widget_id)
+            .map(|w| w.draw(self, offset, drawer));
+    }
+}
+
+impl EventContext<f32> for Context {
+    fn hit_test_widget(
+        &self,
+        widget_id: WidgetId,
+        local_coords: crate::types::Point<f32>,
+        router: &mut crate::events::EventRouter,
+    ) -> Option<crate::events::HitTestResult> {
+        self.widget_forest
+            .node_by_id(widget_id)
+            .map(|w| w.hit_test(self, local_coords, router))
+    }
+
+    fn route_events_to_widget(&mut self, widget_id: WidgetId, router: &crate::events::EventRouter) {
+        self.widget_forest
+            .node_by_id_mut(widget_id)
+            .map(|mut w| w.route_events(self, router));
     }
 }
 

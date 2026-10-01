@@ -1,19 +1,20 @@
 use crate::{
     context::{
-        GenerateId, GetFont, GetState, GetStyle, ManageAnimationRegistry, ManageWidgetData,
-        RegisterKey, StateSubscription, StyleSubscription,
+        GenerateId, GetFont, GetState, GetStyle, ManageAnimationRegistry, RegisterKey,
+        StateSubscription, StyleSubscription,
     },
     types::{identifiers::WidgetKey, WidgetClass, WidgetId},
-    widget::WidgetBase,
+    widget::{WidgetBase, WidgetInformationContext},
 };
 
+// TODO: add dirty flag management
 pub(crate) trait InitContext:
     GenerateId
     + RegisterKey<WidgetKey, WidgetId>
     + GetState
     + StateSubscription<WidgetId>
     + StyleSubscription<WidgetClass, WidgetId>
-    + ManageWidgetData<WidgetId>
+    + WidgetInformationContext
     + ManageAnimationRegistry<WidgetId>
     + GetStyle
     + GetFont
@@ -26,7 +27,7 @@ impl<C> InitContext for C where
         + GetState
         + StateSubscription<WidgetId>
         + StyleSubscription<WidgetClass, WidgetId>
-        + ManageWidgetData<WidgetId>
+        + WidgetInformationContext
         + ManageAnimationRegistry<WidgetId>
         + GetStyle
         + GetFont

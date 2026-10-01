@@ -11,7 +11,10 @@ use std::{cmp::Ordering, collections::VecDeque, hash::Hash, time};
 use widgets::{
     self,
     animations::AnimationKind,
-    context::{Context, CreateState, DebugOptions, GetState, SetState, SetStyleClass, Tick},
+    context::{
+        Context, CreateState, DebugOptions, GetState, SetState, SetStyleClass, Tick,
+        WidgetTreeCreation,
+    },
     events::RawEvent,
     make_style, make_widget,
     stage::{draw::Drawer, measure::Constraints},
@@ -293,26 +296,26 @@ impl Banner {
 
         let summary_state = context.create_state_mut(notification.summary.clone());
         let summary_widget = make_widget! {
-            Text {
+            context <== Text (
                 class: Banner::NOTIFICATION_SUMMARY,
                 state: summary_state,
-            }
+            )
         };
 
         let body_state = context.create_state_mut(notification.body.clone());
         let body_widget = make_widget! {
-            Text {
+            context <== Text (
                 class: Banner::NOTIFICATION_BODY,
                 state: body_state
-            }
+            )
         };
 
         let image_state = context.create_state_mut(make_image_provider(&notification, display));
         let image_widget = make_widget! {
-            Image {
+            context <== Image (
                 class: Banner::NOTIFICATION_IMAGE,
                 state: image_state,
-            }
+            )
         };
 
         let visible_state = context.create_state_mut(true);
@@ -320,7 +323,7 @@ impl Banner {
         let banner_phase = context.create_state_mut(BannerPhase::NotShown);
 
         let layout = make_widget! {
-            AnimatedVisibility {
+            context <== AnimatedVisibility(
                 visibility_state: visible_state,
                 class: Banner::NOTIFICATION_ANIMATED_VISIBILITY,
 
@@ -340,31 +343,32 @@ impl Banner {
                 on_hover: move |mut context, _| {
                     context.set(visible_state, true);
                 },
-
-                child: make_widget! {
-                    FlexContainer {
+            ) {
+                make_widget! {
+                    context <== FlexContainer(
                         class: Banner::NOTIFICATION_FRAME,
                         direction: Direction::Horizontal,
                         alignment: Alignment::new(Position::Start, Position::Center),
-                        children: vec![
-                            image_widget.into(),
-                            make_widget!{
-                                FlexContainer {
-                                    direction: Direction::Vertical,
-                                    alignment: Alignment::new(Position::Center, Position::Center),
-                                    children: vec![summary_widget.into(), body_widget.into()],
-                                }
-                            }.into()
-                        ]
+                    ) {
+                        image_widget,
+                        make_widget!{
+                            context <== FlexContainer (
+                                direction: Direction::Vertical,
+                                alignment: Alignment::new(Position::Center, Position::Center),
+                            ) {
+                                summary_widget,
+                                body_widget
+                            }
+                        }
                     }
                 }
             }
-        }
-        .into();
+        };
 
         set_styles(&mut context, &notification, config);
+        context.set_pending_root(layout);
 
-        let mut ui_root = UiRoot::new(layout, context);
+        let mut ui_root = UiRoot::new(context);
         ui_root.layout(Constraints::new_tight(extent).into());
 
         let banner_state = BannerState {

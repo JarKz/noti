@@ -5,7 +5,7 @@ use log::warn;
 use crate::{
     context::{LoadExtent, ScopedContext, ScopedManageState},
     types::{Extent, Point, WidgetId},
-    widget::{WidgetEnum, WidgetGetType, WidgetInformation},
+    widget::{WidgetEnum, WidgetGetType, WidgetInformation, WidgetInformationContext},
 };
 
 #[derive(Debug, Clone)]
@@ -28,17 +28,19 @@ pub enum MouseButton {
     Right,
 }
 
-pub(crate) trait EventContext<T>: LoadExtent<T, WidgetId> + ScopedManageState
+pub(crate) trait EventContext<T>:
+    WidgetInformationContext + LoadExtent<T, WidgetId> + ScopedManageState
 where
     T: Default + Copy,
 {
-}
+    fn hit_test_widget(
+        &self,
+        widget_id: WidgetId,
+        local_coords: Point<f32>,
+        router: &mut EventRouter,
+    ) -> Option<HitTestResult>;
 
-impl<C, T> EventContext<T> for C
-where
-    C: LoadExtent<T, WidgetId> + ScopedManageState,
-    T: Default + Copy,
-{
+    fn route_events_to_widget(&mut self, widget_id: WidgetId, router: &EventRouter);
 }
 
 pub(crate) struct EventManager {
@@ -76,8 +78,12 @@ impl EventManager {
         }
     }
 
-    fn dispatch_mouse_move<C>(&mut self, context: &mut C, event: RawEvent, widget_tree: &mut WidgetEnum)
-    where
+    fn dispatch_mouse_move<C>(
+        &mut self,
+        context: &mut C,
+        event: RawEvent,
+        widget_tree: &mut WidgetEnum,
+    ) where
         C: EventContext<f32>,
     {
         let mut router = EventRouter::default();

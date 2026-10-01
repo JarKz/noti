@@ -7,28 +7,28 @@
 
 use crate::{
     context::{
-        ClearWidgetResources, ManageAnimationRegistry, ManageWidgetData, StateSubscription,
-        StyleSubscription, UnregisterKey,
+        ClearWidgetResources, ManageAnimationRegistry, StateSubscription, StyleSubscription,
+        UnregisterKey,
     },
     types::{identifiers::WidgetKey, WidgetClass, WidgetId},
-    widget::WidgetBase,
+    widget::{WidgetBase, WidgetInformationContext},
 };
 
 pub(crate) trait DeinitContext:
-    UnregisterKey<WidgetKey>
+    WidgetInformationContext
+    + UnregisterKey<WidgetKey>
     + StateSubscription<WidgetId>
     + StyleSubscription<WidgetClass, WidgetId>
-    + ManageWidgetData<WidgetId>
     + ManageAnimationRegistry<WidgetId>
     + ClearWidgetResources<WidgetId>
 {
 }
 
 impl<C> DeinitContext for C where
-    C: UnregisterKey<WidgetKey>
+    C: WidgetInformationContext
+        + UnregisterKey<WidgetKey>
         + StateSubscription<WidgetId>
         + StyleSubscription<WidgetClass, WidgetId>
-        + ManageWidgetData<WidgetId>
         + ManageAnimationRegistry<WidgetId>
         + ClearWidgetResources<WidgetId>
 {
