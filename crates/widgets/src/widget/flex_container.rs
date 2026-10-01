@@ -3,7 +3,7 @@ use std::ops::{Add, AddAssign, Sub, SubAssign};
 use log::warn;
 
 use crate::{
-    context::{LoadExtent, ManageIntrinsic, ManageWidgetData},
+    context::{LoadExtent, ManageIntrinsic},
     decorator::{
         content::Content, DecoratorExt, DrawDecorator, EventHitTestDecorator, MeasureDecorator,
     },
@@ -27,9 +27,7 @@ use crate::{
         style::{Configure, StyleProperty, WidgetStyle},
         Color, Point,
     },
-    widget::{
-        WidgetEnum, WidgetGetType, WidgetInformation, WidgetInformationContext, WidgetSizingMode,
-    },
+    widget::{WidgetGetType, WidgetInformation, WidgetInformationContext, WidgetSizingMode},
 };
 
 /// A container widget that arranges its child widgets along a single
@@ -118,12 +116,12 @@ impl FlexContainer {
     /// - **Vertical Direction:** the width of the widest child.
     pub(crate) fn children_width<C>(&self, context: &C) -> f32
     where
-        C: LoadExtent<f32, WidgetId>,
+        C: WidgetInformationContext + LoadExtent<f32, WidgetId>,
     {
-        let widths = self
-            .children
-            .iter()
-            .map(|child| context.load(child.get_id()).unwrap_or_default().width);
+        let widths = context
+            .childrens_identifiers_of(self.id)
+            .into_iter()
+            .map(|child_widget_id| context.load(child_widget_id).unwrap_or_default().width);
 
         match self.direction {
             Direction::Horizontal => widths.sum(),
@@ -137,12 +135,12 @@ impl FlexContainer {
     /// - **Vertical Direction:** the sum of all children's heights.
     pub(crate) fn children_height<C>(&self, context: &C) -> f32
     where
-        C: LoadExtent<f32, WidgetId>,
+        C: WidgetInformationContext + LoadExtent<f32, WidgetId>,
     {
-        let heights = self
-            .children
-            .iter()
-            .map(|child| context.load(child.get_id()).unwrap_or_default().height);
+        let heights = context
+            .childrens_identifiers_of(self.id)
+            .into_iter()
+            .map(|child_widget_id| context.load(child_widget_id).unwrap_or_default().height);
 
         match self.direction {
             Direction::Horizontal => heights.reduce(|a, b| a.max(b)).unwrap_or_default(),
@@ -156,7 +154,7 @@ impl FlexContainer {
     /// width in a row).
     fn main_children_extent<C>(&self, context: &C) -> f32
     where
-        C: LoadExtent<f32, WidgetId>,
+        C: WidgetInformationContext + LoadExtent<f32, WidgetId>,
     {
         match &self.direction {
             Direction::Horizontal => self.children_width(context),
@@ -170,7 +168,7 @@ impl FlexContainer {
     #[allow(unused)]
     fn cross_children_extent<C>(&self, context: &C) -> f32
     where
-        C: LoadExtent<f32, WidgetId>,
+        C: WidgetInformationContext + LoadExtent<f32, WidgetId>,
     {
         match &self.direction {
             Direction::Horizontal => self.children_height(context),
@@ -212,8 +210,8 @@ impl FlexContainer {
         provided_extent: Extent<f32>,
         callback: &mut F,
     ) where
-        C: LoadExtent<f32, WidgetId>,
-        F: FnMut((usize, &WidgetEnum), Offset<f32>) -> IteratorProcess,
+        C: WidgetInformationContext + LoadExtent<f32, WidgetId>,
+        F: FnMut((usize, &WidgetId), Offset<f32>) -> IteratorProcess,
     {
         let mut plane = FCPlane::new(Offset::<f32>::default(), provided_extent, self.direction);
 
@@ -222,14 +220,16 @@ impl FlexContainer {
             .main_axis_alignment()
             .get_start(plane.main.extent, main_children_extent);
 
+        let childrens_indices = context.childrens_identifiers_of(self.id);
+
         let incrementor = match self.main_axis_alignment() {
             Position::Start | Position::Center | Position::End => 0.0,
             Position::SpaceBetween => {
-                if self.children.len() <= 1 {
+                if childrens_indices.len() <= 1 {
                     0.0
                 } else {
                     (plane.main.extent - main_children_extent)
-                        / self.children.len().saturating_sub(1) as f32
+                        / childrens_indices.len().saturating_sub(1) as f32
                 }
             }
         };
@@ -237,15 +237,15 @@ impl FlexContainer {
         let cross_axis_start = plane.cross.start;
         let cross_axis_alignment = self.cross_axis_alignment();
 
-        for (index, child) in self.children.iter().enumerate() {
-            let child_extent = <C as LoadExtent<f32, WidgetId>>::load(context, child.get_id())
+        for (index, child_widget_id) in childrens_indices.iter().enumerate() {
+            let child_extent = <C as LoadExtent<f32, WidgetId>>::load(context, *child_widget_id)
                 .unwrap_or_default()
                 .to_flex(&self.direction);
 
             plane.cross.start = cross_axis_start
                 + cross_axis_alignment.get_start(plane.cross.extent, child_extent.cross);
 
-            match callback((index, child), plane.as_offset()) {
+            match callback((index, child_widget_id), plane.as_offset()) {
                 IteratorProcess::Continue => (),
                 IteratorProcess::Break => break,
             }
@@ -301,10 +301,6 @@ where
         if let Some(WidgetStyle::Container(container_style)) = context.get_style(&self.class) {
             self.configure(container_style.clone());
         }
-
-        self.children.iter_mut().for_each(|child| {
-            child.init(context);
-        });
     }
 }
 
@@ -334,7 +330,8 @@ where
         C: ManageIntrinsic<f32, WidgetId>,
     {
         Content::intrinsic_fn(|| {
-            if self.children.is_empty() {
+            let childrens_indices = context.childrens_identifiers_of(self.id);
+            if childrens_indices.is_empty() {
                 return measure::Intrinsic::default();
             }
 
@@ -348,8 +345,10 @@ where
                 cross: 0.0,
             };
 
-            for child in &self.children {
-                let child_intrinsic = child.intrinsic(context);
+            for child_widget_id in &childrens_indices {
+                let child_intrinsic = context
+                    .widget_intrinsic(child_widget_id)
+                    .expect("A child must exist in a FlexContainer!");
 
                 let child_min_intrinsic = child_intrinsic.min.to_flex(&self.direction);
                 min_intrinsic.main += child_min_intrinsic.main;
@@ -378,12 +377,19 @@ where
             let mut fixed_children = vec![];
             let mut dynamic_children = vec![];
 
-            for child in &self.children {
-                let intrinsic = child.intrinsic(context);
+            let childrens_indices = context.childrens_identifiers_of(self.id);
 
-                match child.sizing_mode(context) {
-                    SizingMode::Fixed => fixed_children.push((child, intrinsic)),
-                    SizingMode::Dynamic => dynamic_children.push((child, intrinsic)),
+            for child_widget_id in &childrens_indices {
+                let intrinsic = context
+                    .widget_intrinsic(child_widget_id)
+                    .expect("A child widget must exist in a FlexContainer!");
+
+                match context
+                    .widget_sizing_mode(child_widget_id)
+                    .expect("A child widget must exist in a FlexContainer!")
+                {
+                    SizingMode::Fixed => fixed_children.push((child_widget_id, intrinsic)),
+                    SizingMode::Dynamic => dynamic_children.push((child_widget_id, intrinsic)),
                 }
             }
 
@@ -394,7 +400,7 @@ where
 
             let mut used_extent = <FlexExtent<f32>>::default();
 
-            for (child, child_intrinsic) in fixed_children {
+            for (child_widget_id, child_intrinsic) in fixed_children {
                 let child_constraints = Constraints::new_tight(
                     FlexExtent {
                         main: child_intrinsic.max.by_direction(&self.direction),
@@ -402,9 +408,12 @@ where
                     }
                     .to_normal(&self.direction),
                 );
-                let child_used = child
-                    .measure(context, child_constraints)
+
+                let child_used = context
+                    .measure_widget(child_widget_id, child_constraints)
+                    .expect("A child must exist and be measured in a FlexContainer!")
                     .to_flex(&self.direction);
+
                 used_extent.main += child_used.main;
                 used_extent.cross = used_extent.cross.max(child_used.cross);
             }
@@ -455,17 +464,20 @@ where
                 break;
             }
 
-            for (child, fair_share_extent) in freezed_childs {
+            for (child_widget_id, fair_share_extent) in freezed_childs {
                 let child_constraints =
                     Constraints::new_soft(fair_share_extent.to_normal(&self.direction));
-                let child_used = child
-                    .measure(context, child_constraints)
+
+                let child_used = context
+                    .measure_widget(child_widget_id, child_constraints)
+                    .expect("A child widget must exist and be measured in a FlexContainer!")
                     .to_flex(&self.direction);
+
                 used_extent.main += child_used.main;
                 used_extent.cross = used_extent.cross.max(child_used.cross);
             }
 
-            for (child, _) in dynamic_children {
+            for (child_widget_id, _) in dynamic_children {
                 let child_constraints = Constraints::new_soft(
                     FlexExtent {
                         main: base_fair_share,
@@ -473,9 +485,12 @@ where
                     }
                     .to_normal(&self.direction),
                 );
-                let child_used = child
-                    .measure(context, child_constraints)
+
+                let child_used = context
+                    .measure_widget(child_widget_id, child_constraints)
+                    .expect("A child widget must exist and be measured in a FlexContainer!")
                     .to_flex(&self.direction);
+
                 used_extent.main += child_used.main;
                 used_extent.cross = used_extent.cross.max(child_used.cross);
             }
@@ -506,10 +521,6 @@ where
         if context.load(self.id).is_none() {
             warn!("FlexContainer with id {} didn't measured!", *self.id);
         }
-
-        for child in &mut self.children {
-            child.layout(context);
-        }
     }
 }
 
@@ -529,8 +540,8 @@ where
                 self.iterate_over_children(
                     context,
                     provided_extent,
-                    &mut |(_, child), local_offset| {
-                        child.draw(context, &(local_offset + *offset), drawer);
+                    &mut |(_, child_widget_id), local_offset| {
+                        context.draw_widget(child_widget_id, &(local_offset + *offset), drawer);
 
                         IteratorProcess::Continue
                     },
@@ -576,14 +587,14 @@ where
     ) -> HitTestResult {
         Content::hit_test_fn(
             |local_coords: Point<f32>, provided_extent: Extent<f32>, router: &mut EventRouter| {
-                let mut result = HitTestResult::Missed;
+                let mut hit_result = HitTestResult::Missed;
                 self.iterate_over_children(
                     context,
                     provided_extent,
-                    &mut |(index, child), offset| {
-                        result = child.hit_test(context, local_coords - offset.into(), router);
+                    &mut |(index, child_widget_id), offset| {
+                        hit_result = context.hit_test_widget(child_widget_id, local_coords - offset.into(), router).expect("A child widget must exist and be able to hit test in a FlexContainer!");
 
-                        match &result {
+                        match &hit_result {
                             HitTestResult::Missed => IteratorProcess::Continue,
                             HitTestResult::Hit => {
                                 router.set_next_index(self.id, index);
@@ -594,7 +605,7 @@ where
                     },
                 );
 
-                result
+                hit_result
             },
         )
         .spacing(self.spacing.unwrap_or_default())
@@ -614,8 +625,8 @@ where
         next_child: usize,
         router: &EventRouter,
     ) {
-        if let Some(child) = self.children.get_mut(next_child) {
-            child.route_events(context, router);
+        if let Some(child_widget_id) = context.childrens_identifiers_of(self.id).get(next_child) {
+            context.route_events_to_widget(child_widget_id, router);
         }
     }
 }

@@ -257,9 +257,9 @@ where
             VisibilityPhase::SpatialChange => SizingMode::Dynamic,
             VisibilityPhase::Transition | VisibilityPhase::Showing | VisibilityPhase::Hidden => {
                 context
-                    .children_of(self.id)
+                    .childrens_identifiers_of(self.id)
                     .first()
-                    .and_then(|child| context.widget_sizing_mode(child.get_id()))
+                    .and_then(|child_widget_id| context.widget_sizing_mode(child_widget_id))
                     .unwrap_or(SizingMode::Fixed)
             }
         }
@@ -402,9 +402,8 @@ where
         C: ManageIntrinsic<f32, WidgetId>,
     {
         context
-            .children_of(self.id)
+            .childrens_identifiers_of(self.id)
             .first()
-            .map(|w| w.get_id())
             .and_then(|child_widget_id| context.widget_intrinsic(child_widget_id))
             .unwrap_or_default()
     }
@@ -414,9 +413,8 @@ where
         C: ManageMeasures<f32, WidgetId>,
     {
         let mut used_extent = context
-            .children_of(self.id)
+            .childrens_identifiers_of(self.id)
             .first()
-            .map(|w| w.get_id())
             .and_then(|child_widget_id| context.measure_widget(child_widget_id, constraints))
             .unwrap_or_default();
 
@@ -465,15 +463,13 @@ where
         match runtime_information.phase {
             VisibilityPhase::Hidden | VisibilityPhase::SpatialChange => (),
             VisibilityPhase::Transition => {
-                if let Some(child_widget_id) =
-                    context.children_of(self.id).first().map(|w| w.get_id())
-                {
+                if let Some(child_widget_id) = context.childrens_identifiers_of(self.id).first() {
                     let animation_definition = self
                         .animation_properties()
                         .resolve_animation(runtime_information.resolve_animation_appearance());
                     let widget_image = drawer.draw_into_offscreen(context, offset, child_widget_id);
 
-                    let child_extent = context.load(child_widget_id).unwrap_or_default();
+                    let child_extent = context.load(*child_widget_id).unwrap_or_default();
                     let progress = context.animation_progress(self.id).unwrap_or_default();
                     let paint = animation_definition.kind.filter(
                         widget_image,
@@ -486,9 +482,7 @@ where
                 }
             }
             VisibilityPhase::Showing => {
-                if let Some(child_widget_id) =
-                    context.children_of(self.id).first().map(|w| w.get_id())
-                {
+                if let Some(child_widget_id) = context.childrens_identifiers_of(self.id).first() {
                     context.draw_widget(child_widget_id, offset, drawer)
                 }
             }
@@ -535,13 +529,13 @@ where
     ) -> HitTestResult {
         Content::hit_test_fn(
             |local_coords: Point<f32>, _provided_extent: Extent<f32>, router: &mut EventRouter| {
-                if let Some(hit_result) = context
-                    .children_of(self.id)
-                    .first()
-                    .map(|w| w.get_id())
-                    .and_then(|child_widget_id| {
-                        context.hit_test_widget(child_widget_id, local_coords, router)
-                    })
+                if let Some(hit_result) =
+                    context
+                        .childrens_identifiers_of(self.id)
+                        .first()
+                        .and_then(|child_widget_id| {
+                            context.hit_test_widget(child_widget_id, local_coords, router)
+                        })
                 {
                     match hit_result {
                         HitTestResult::Hit => {
@@ -588,7 +582,7 @@ where
             }
         }
 
-        if let Some(child_widget_id) = context.children_of(self.id).first().map(|w| w.get_id()) {
+        if let Some(child_widget_id) = context.childrens_identifiers_of(self.id).first() {
             context.route_events_to_widget(child_widget_id, router);
         }
     }

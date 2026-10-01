@@ -10,7 +10,7 @@ use crate::{
     widget::{WidgetInformation, WidgetInformationContext, WidgetSizingMode},
 };
 
-pub(crate) trait InvalidateContext:
+pub trait InvalidateContext:
     WidgetInformationContext
     + ManageDirtyFlags<WidgetId>
     + ManageAnimationRegistry<WidgetId>
@@ -32,12 +32,12 @@ impl<C> InvalidateContext for C where
 {
 }
 
-pub(crate) enum RebuildStatus {
+pub enum RebuildStatus {
     NeedsMeasure,
     NothingChanged,
 }
 
-pub(crate) trait Invalidate<C>: WidgetInformation + WidgetSizingMode<C>
+pub trait Invalidate<C>: WidgetInformation + WidgetSizingMode<C>
 where
     C: InvalidateContext,
 {

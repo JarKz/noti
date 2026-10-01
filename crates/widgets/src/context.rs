@@ -7,6 +7,10 @@ use crate::{
     stage::{
         draw::DrawContext,
         measure::{Constraints, Intrinsic, MeasureContext},
+        rebuild::{
+            keyed_diffing, positional_diffing, scan_forest, RebuildContext, RebuildOperation,
+            RebuildTree,
+        },
     },
     state::{MutableState, State, StateInfo},
     types::{
@@ -81,6 +85,10 @@ impl Context {
         }
     }
 
+    pub(super) fn main_tree_root(&self) -> Option<&WidgetId> {
+        self.widget_forest.main_tree_root_id()
+    }
+
     pub fn update_debug_options(&mut self, debug_options: DebugOptions) {
         self.debug_options = debug_options;
     }
@@ -92,8 +100,106 @@ impl Context {
         descriptor
     }
 
-    pub(super) fn is_invalidation_required(&self) -> bool {
-        !self.dirty_registry.is_empty()
+    pub(super) fn has_pending_tree_root(&self) -> bool {
+        self.widget_forest.pending_tree_root().is_some()
+    }
+
+    pub(super) fn has_invalid_widgets(&self) -> bool {
+        self.dirty_registry.values().any(|flags| {
+            flags.intersects(DirtyFlags::NEEDS_REBUILD | DirtyFlags::NEEDS_UPDATE_STYLES)
+        })
+    }
+
+    pub(super) fn invalidate_widgets(&mut self) {
+        let suitable_widget_identifiers = self
+            .dirty_registry
+            .iter()
+            .filter(|(_, flags)| {
+                flags.intersects(DirtyFlags::NEEDS_REBUILD | DirtyFlags::NEEDS_UPDATE_STYLES)
+            })
+            .map(|(widget_id, _)| *widget_id)
+            .collect::<Vec<_>>();
+
+        for widget_id in &suitable_widget_identifiers {
+            if let Some(mut widget) = self.widget_forest.node_by_id_mut(widget_id) {
+                widget.invalidate(self);
+            }
+        }
+    }
+
+    pub(super) fn needs_measurement(&self) -> bool {
+        self.dirty_registry.values().any(|flags| {
+            flags.intersects(DirtyFlags::NEEDS_MEASURE | DirtyFlags::CHILD_NEEDS_MEASURE)
+        })
+    }
+
+    pub(super) fn measure_widgets(&mut self, root_constraints: Constraints<Extent<f32>>) {
+        if let Some(root_id) = self.widget_forest.main_tree_root_id().copied() {
+            let root_dirty_flags = self
+                .dirty_registry
+                .get(&root_id)
+                .copied()
+                .unwrap_or(DirtyFlags::empty());
+
+            if root_dirty_flags
+                .intersects(DirtyFlags::NEEDS_MEASURE | DirtyFlags::CHILD_NEEDS_MEASURE)
+            {
+                let main_root = self
+                    .widget_forest
+                    .node_by_id_mut(&root_id)
+                    .expect("Since there is a root ID, then there must be a main root!");
+
+                main_root.measure(self, root_constraints);
+            }
+        }
+
+        // INFO: it's a special case when re-measuring from root might not affect some branches of
+        // widget tree, because constraints are not changed for them. Then we need to check manually
+        // and re-measure.
+        //
+        // Also it applies if re-measurement starts not from a root, but from some fixed-sized parents.
+        let unmeasured_parent_widgets = self
+            .dirty_registry
+            .iter()
+            .filter(|(_, flags)| flags.contains(DirtyFlags::CHILD_NEEDS_MEASURE))
+            .map(|(widget_id, _)| *widget_id)
+            .collect::<Vec<_>>();
+
+        for widget_id in &unmeasured_parent_widgets {
+            let widget = self
+                .widget_forest
+                .node_by_id_mut(widget_id)
+                .expect("Since there is a widget ID, then there must be a widget in a main tree!");
+            let saved_constraints =
+                <Context as LoadConstraints<f32, WidgetId>>::load(self, *widget_id)
+                    .unwrap_or_default();
+
+            widget.measure(self, saved_constraints);
+        }
+    }
+
+    pub(super) fn needs_layout(&self) -> bool {
+        self.dirty_registry
+            .values()
+            .any(|flags| flags.contains(DirtyFlags::NEEDS_LAYOUT))
+    }
+
+    pub(super) fn layout_widgets(&mut self) {
+        let suitable_widget_identifiers = self
+            .dirty_registry
+            .iter()
+            .filter(|(_, flags)| flags.contains(DirtyFlags::NEEDS_LAYOUT))
+            .map(|(widget_id, _)| *widget_id)
+            .collect::<Vec<_>>();
+
+        for widget_id in &suitable_widget_identifiers {
+            let mut widget = self
+                .widget_forest
+                .node_by_id_mut(widget_id)
+                .expect("Since there is a widget ID, then there must be a widget in a main tree!");
+
+            widget.layout(self);
+        }
     }
 }
 
@@ -138,7 +244,7 @@ struct MeasureCache {
 /// The animation progress is detached from widget, but provides information to it. It allows tick a
 /// progress independently and tell the [Context] whether to call a widget to rebuild or not.
 #[derive(Debug, Clone)]
-pub(crate) struct AnimationProgress {
+pub struct AnimationProgress {
     /// The time was passed since start in nanoseconds.
     ///
     /// Actual start might be at zero or at maximum duration depending on an animation direction. If
@@ -230,7 +336,10 @@ impl GetDebugOptions for Context {
 }
 
 impl WidgetInformationContext for Context {
-    fn widget_sizing_mode(&self, widget_id: WidgetId) -> Option<crate::stage::measure::SizingMode> {
+    fn widget_sizing_mode(
+        &self,
+        widget_id: &WidgetId,
+    ) -> Option<crate::stage::measure::SizingMode> {
         self.widget_forest
             .node_by_id(widget_id)
             .map(|w| w.sizing_mode(self))
@@ -257,16 +366,18 @@ impl WidgetTreeCreation for Context {
     }
 }
 
-pub(crate) trait WidgetTreeAccess<Id>
+pub trait WidgetTreeAccess<Id>
 where
     Id: Into<WidgetId>,
 {
     fn widget_by(&self, id: Id) -> Option<&dyn Widget<Context>>;
     fn widget_by_mut(&mut self, id: Id) -> Option<Unique<dyn Widget<Context>>>;
 
+    fn parent_id_of(&self, id: Id) -> Option<WidgetId>;
     fn parent_of(&self, id: Id) -> Option<&dyn Widget<Context>>;
     fn parent_of_mut(&mut self, id: Id) -> Option<Unique<dyn Widget<Context>>>;
 
+    fn childrens_identifiers_of(&self, id: Id) -> Vec<WidgetId>;
     fn children_of(&self, id: Id) -> Vec<&dyn Widget<Context>>;
     fn children_of_mut(&mut self, id: Id) -> Vec<Unique<dyn Widget<Context>>>;
 }
@@ -276,13 +387,17 @@ where
     Id: Into<WidgetId>,
 {
     fn widget_by(&self, id: Id) -> Option<&dyn Widget<Context>> {
-        self.widget_forest.node_by_id(id.into()).map(|w| &**w)
+        self.widget_forest.node_by_id(&id.into()).map(|w| &**w)
     }
 
     fn widget_by_mut(&mut self, id: Id) -> Option<Unique<dyn Widget<Context>>> {
         self.widget_forest
-            .node_by_id_mut(id.into())
+            .node_by_id_mut(&id.into())
             .map(|mut w| unsafe { Unique::from_mut(&mut **w) })
+    }
+
+    fn parent_id_of(&self, id: Id) -> Option<WidgetId> {
+        self.widget_forest.parent_id_by_id(id.into())
     }
 
     fn parent_of(&self, id: Id) -> Option<&dyn Widget<Context>> {
@@ -293,6 +408,10 @@ where
         self.widget_forest
             .parent_by_id_mut(id.into())
             .map(|mut w| unsafe { Unique::from_mut(&mut **w) })
+    }
+
+    fn childrens_identifiers_of(&self, id: Id) -> Vec<WidgetId> {
+        self.widget_forest.childrens_indices_by_id(id.into())
     }
 
     fn children_of(&self, id: Id) -> Vec<&dyn Widget<Context>> {
@@ -309,6 +428,76 @@ where
             .into_iter()
             .map(|mut w| unsafe { Unique::from_mut(&mut **w) })
             .collect()
+    }
+}
+
+impl RebuildTree for Context {
+    fn rebuild_tree(&mut self) {
+        if self.widget_forest.pending_tree_root().is_none() {
+            return;
+        }
+
+        let mut rebuild_context = RebuildContext::default();
+        scan_forest(&self.widget_forest, &mut rebuild_context);
+        positional_diffing(
+            &self.widget_forest,
+            self.widget_forest.main_tree_root(),
+            self.widget_forest.pending_tree_root(),
+            &mut rebuild_context,
+        );
+        keyed_diffing(&self.widget_forest, &mut rebuild_context);
+        perform_operation_set(self, &rebuild_context);
+
+        self.widget_forest.promote_pending_tree_root();
+    }
+}
+
+fn perform_operation_set(context: &mut Context, rebuild_context: &RebuildContext) {
+    for operation in rebuild_context.operation_set() {
+        match operation {
+            RebuildOperation::Initialize { node_id } => {
+                let mut node = unsafe {
+                    Unique::from_mut(
+                        &mut **context
+                            .widget_forest
+                            .node_mut(node_id)
+                            .expect("There must be a node in forest!"),
+                    )
+                };
+                node.init(context);
+                context.widget_forest.make_relation(node.get_id(), *node_id);
+            }
+            RebuildOperation::Deinitialize { node_id } => {
+                let mut node = unsafe {
+                    Unique::from_mut(
+                        &mut **context
+                            .widget_forest
+                            .node_mut(node_id)
+                            .expect("There must be a node in forest!"),
+                    )
+                };
+                let id = node.get_id();
+                node.deinit(context);
+                context.widget_forest.remove_relation(id);
+            }
+            RebuildOperation::Reuse { old_node, new_node } => {
+                let old_node = context
+                    .widget_forest
+                    .node(old_node)
+                    .expect("There must be a node in forest!");
+                let old_node_id = old_node.get_id();
+
+                let new_node = context
+                    .widget_forest
+                    .node_mut(new_node)
+                    .expect("There must be a node in forest!");
+
+                new_node.set_id(old_node_id);
+
+                // TODO: in future implement the comparison between nodes to make a correct dirty
+                // flags in order correct invaliadion, measurement and etc.
+            }
+        }
     }
 }
 
@@ -422,7 +611,7 @@ impl<'a> ScopedContext<'a> {
 }
 
 /// The dyn-compatible version of [GetState] and [SetState].
-pub(crate) trait ScopedManageState {
+pub trait ScopedManageState {
     fn get_raw(&self, descriptor: usize) -> Option<&dyn Any>;
     fn set_raw(&mut self, descriptor: usize, val: Box<dyn Any>);
 }
@@ -511,7 +700,7 @@ impl<'a> SetState for ScopedContext<'a> {
     }
 }
 
-pub(crate) trait StateSubscription<Id>
+pub trait StateSubscription<Id>
 where
     Id: Into<WidgetId>,
 {
@@ -555,7 +744,7 @@ where
     }
 }
 
-pub(crate) trait StyleSubscription<C, Id>
+pub trait StyleSubscription<C, Id>
 where
     C: Into<WidgetClass>,
     Id: Into<WidgetId>,
@@ -641,7 +830,7 @@ impl Tick for Context {
     }
 }
 
-pub(crate) trait GenerateId {
+pub trait GenerateId {
     fn generate_id(&mut self) -> WidgetId;
 }
 
@@ -653,7 +842,7 @@ impl GenerateId for Context {
     }
 }
 
-pub(crate) trait RegisterKey<K, Id>
+pub trait RegisterKey<K, Id>
 where
     K: Into<WidgetKey>,
     Id: Into<WidgetId>,
@@ -671,7 +860,7 @@ where
     }
 }
 
-pub(crate) trait UnregisterKey<K>
+pub trait UnregisterKey<K>
 where
     K: Into<WidgetKey>,
 {
@@ -687,7 +876,7 @@ where
     }
 }
 
-pub(crate) trait ManageDirtyFlags<Id>
+pub trait ManageDirtyFlags<Id>
 where
     Id: Into<WidgetId>,
 {
@@ -720,7 +909,7 @@ where
     }
 }
 
-pub(crate) trait GetStyle {
+pub trait GetStyle {
     fn get_style(&self, class: &WidgetClass) -> Option<&WidgetStyle>;
 }
 
@@ -730,7 +919,7 @@ impl GetStyle for Context {
     }
 }
 
-pub(crate) trait GetFont {
+pub trait GetFont {
     fn get_font(&self) -> skia_safe::textlayout::FontCollection;
 }
 
@@ -740,7 +929,7 @@ impl GetFont for Context {
     }
 }
 
-pub(crate) trait SaveIntrinsic<T, Id>
+pub trait SaveIntrinsic<T, Id>
 where
     T: Default + Copy,
     Id: Into<WidgetId>,
@@ -748,7 +937,7 @@ where
     fn save(&mut self, id: Id, intrinsic: Intrinsic<T>);
 }
 
-pub(crate) trait LoadIntrinsic<T, Id>
+pub trait LoadIntrinsic<T, Id>
 where
     T: Default + Copy,
     Id: Into<WidgetId>,
@@ -756,8 +945,7 @@ where
     fn load(&self, id: Id) -> Option<Intrinsic<T>>;
 }
 
-pub(crate) trait ManageIntrinsic<T, Id>:
-    SaveIntrinsic<T, Id> + LoadIntrinsic<T, Id>
+pub trait ManageIntrinsic<T, Id>: SaveIntrinsic<T, Id> + LoadIntrinsic<T, Id>
 where
     T: Default + Copy,
     Id: Into<WidgetId>,
@@ -772,7 +960,7 @@ where
 {
 }
 
-pub(crate) trait SaveExtent<T, Id>
+pub trait SaveExtent<T, Id>
 where
     T: Default + Copy,
     Id: Into<WidgetId>,
@@ -780,7 +968,7 @@ where
     fn save(&mut self, id: Id, extent: Extent<T>);
 }
 
-pub(crate) trait LoadExtent<T, Id>
+pub trait LoadExtent<T, Id>
 where
     T: Default + Copy,
     Id: Into<WidgetId>,
@@ -788,7 +976,7 @@ where
     fn load(&self, id: Id) -> Option<Extent<T>>;
 }
 
-pub(crate) trait ManageExtent<T, Id>: SaveExtent<T, Id> + LoadExtent<T, Id>
+pub trait ManageExtent<T, Id>: SaveExtent<T, Id> + LoadExtent<T, Id>
 where
     T: Default + Copy,
     Id: Into<WidgetId>,
@@ -803,7 +991,7 @@ where
 {
 }
 
-pub(crate) trait SaveConstraints<T, Id>
+pub trait SaveConstraints<T, Id>
 where
     T: Default + Copy,
     Id: Into<WidgetId>,
@@ -811,7 +999,7 @@ where
     fn save(&mut self, id: Id, constraints: Constraints<Extent<T>>);
 }
 
-pub(crate) trait LoadConstraints<T, Id>
+pub trait LoadConstraints<T, Id>
 where
     T: Default + Copy,
     Id: Into<WidgetId>,
@@ -819,8 +1007,7 @@ where
     fn load(&self, id: Id) -> Option<Constraints<Extent<T>>>;
 }
 
-pub(crate) trait ManageConstraints<T, Id>:
-    SaveConstraints<T, Id> + LoadConstraints<T, Id>
+pub trait ManageConstraints<T, Id>: SaveConstraints<T, Id> + LoadConstraints<T, Id>
 where
     T: Default + Copy,
     Id: Into<WidgetId>,
@@ -920,7 +1107,7 @@ where
 }
 
 impl MeasureContext<f32> for Context {
-    fn widget_intrinsic(&mut self, widget_id: WidgetId) -> Option<Intrinsic<f32>> {
+    fn widget_intrinsic(&mut self, widget_id: &WidgetId) -> Option<Intrinsic<f32>> {
         self.widget_forest
             .node_by_id_mut(widget_id)
             .map(|w| w.intrinsic(self))
@@ -928,7 +1115,7 @@ impl MeasureContext<f32> for Context {
 
     fn measure_widget(
         &mut self,
-        widget_id: WidgetId,
+        widget_id: &WidgetId,
         constraints: Constraints<Extent<f32>>,
     ) -> Option<Extent<f32>> {
         self.widget_forest
@@ -940,20 +1127,20 @@ impl MeasureContext<f32> for Context {
 impl DrawContext<f32> for Context {
     fn draw_widget(
         &self,
-        widget_id: WidgetId,
+        widget_id: &WidgetId,
         offset: &crate::types::Offset<f32>,
         drawer: &mut crate::stage::draw::Drawer,
     ) {
-        self.widget_forest
-            .node_by_id(widget_id)
-            .map(|w| w.draw(self, offset, drawer));
+        if let Some(widget) = self.widget_forest.node_by_id(widget_id) {
+            widget.draw(self, offset, drawer)
+        }
     }
 }
 
 impl EventContext<f32> for Context {
     fn hit_test_widget(
         &self,
-        widget_id: WidgetId,
+        widget_id: &WidgetId,
         local_coords: crate::types::Point<f32>,
         router: &mut crate::events::EventRouter,
     ) -> Option<crate::events::HitTestResult> {
@@ -962,14 +1149,18 @@ impl EventContext<f32> for Context {
             .map(|w| w.hit_test(self, local_coords, router))
     }
 
-    fn route_events_to_widget(&mut self, widget_id: WidgetId, router: &crate::events::EventRouter) {
-        self.widget_forest
-            .node_by_id_mut(widget_id)
-            .map(|mut w| w.route_events(self, router));
+    fn route_events_to_widget(
+        &mut self,
+        widget_id: &WidgetId,
+        router: &crate::events::EventRouter,
+    ) {
+        if let Some(mut widget) = self.widget_forest.node_by_id_mut(widget_id) {
+            widget.route_events(self, router)
+        }
     }
 }
 
-pub(crate) trait ManageAnimationRegistry<Id>
+pub trait ManageAnimationRegistry<Id>
 where
     Id: Into<WidgetId>,
 {
@@ -978,7 +1169,7 @@ where
     fn reverse_animation(&mut self, id: Id);
 }
 
-pub(crate) trait AnimationQuery<Id>
+pub trait AnimationQuery<Id>
 where
     Id: Into<WidgetId>,
 {
@@ -1024,7 +1215,7 @@ where
     }
 }
 
-pub(crate) trait ClearWidgetResources<Id>
+pub trait ClearWidgetResources<Id>
 where
     Id: Into<WidgetId>,
 {

@@ -31,7 +31,7 @@ where
     arena: Arena<Node>,
     main_root: Option<NodeId>,
     pending_root: Option<NodeId>,
-    id_to_node: HashMap<Id, NodeId>,
+    relations: Relations<Id, NodeId>,
 }
 
 impl<Id, Node> Default for Forest<Id, Node>
@@ -54,7 +54,7 @@ where
             arena: Arena::new(),
             main_root: None,
             pending_root: None,
-            id_to_node: HashMap::default(),
+            relations: Relations::default(),
         }
     }
 
@@ -70,16 +70,25 @@ where
         parent.append(child, &mut self.arena);
     }
 
-    pub(crate) fn make_relation(&mut self, id: Id, node_id: NodeId) {
-        self.id_to_node.insert(id, node_id);
+    pub(crate) fn make_relation(&mut self, id: Id, node_id: NodeId)
+    where
+        Id: Clone,
+    {
+        self.relations.make_relation(id, node_id);
     }
 
     pub(crate) fn remove_relation(&mut self, id: Id) {
-        self.id_to_node.remove(&id);
+        self.relations.remove_relation_by_left(&id);
     }
 
     pub(crate) fn main_tree_root(&self) -> Option<&NodeId> {
         self.main_root.as_ref()
+    }
+
+    pub(crate) fn main_tree_root_id(&self) -> Option<&Id> {
+        self.main_root
+            .as_ref()
+            .and_then(|node_id| self.relations.get_by_right(node_id))
     }
 
     pub(crate) fn pending_tree_root(&self) -> Option<&NodeId> {
@@ -110,30 +119,41 @@ where
         self.arena.get_data_mut(*node_id)
     }
 
-    pub(crate) fn node_by_id(&self, id: Id) -> Option<&Node> {
-        self.id_to_node
-            .get(&id)
+    pub(crate) fn node_by_id(&self, id: &Id) -> Option<&Node> {
+        self.relations
+            .get_by_left(id)
             .and_then(|node_id| self.node(node_id))
     }
 
-    pub(crate) fn node_by_id_mut(&mut self, id: Id) -> Option<Unique<Node>> {
-        self.id_to_node.get(&id).and_then(|node_id| {
+    pub(crate) fn node_by_id_mut(&mut self, id: &Id) -> Option<Unique<Node>> {
+        self.relations.get_by_left(id).and_then(|node_id| {
             self.arena
                 .get_data_mut(*node_id)
                 .map(|val| unsafe { Unique::from_mut(val) })
         })
     }
 
+    pub(crate) fn parent_id_by_id(&self, id: Id) -> Option<Id>
+    where
+        Id: Clone,
+    {
+        self.relations
+            .get_by_left(&id)
+            .and_then(|node_id| node_id.parent(&self.arena))
+            .and_then(|parent_node_id| self.relations.get_by_right(&parent_node_id))
+            .cloned()
+    }
+
     pub(crate) fn parent_by_id(&self, id: Id) -> Option<&Node> {
-        self.id_to_node
-            .get(&id)
+        self.relations
+            .get_by_left(&id)
             .and_then(|node_id| node_id.parent(&self.arena))
             .and_then(|parent_node_id| self.node(&parent_node_id))
     }
 
     pub(crate) fn parent_by_id_mut(&mut self, id: Id) -> Option<Unique<Node>> {
-        self.id_to_node
-            .get(&id)
+        self.relations
+            .get_by_left(&id)
             .and_then(|node_id| node_id.parent(&self.arena))
             .and_then(|parent_node_id| {
                 self.arena
@@ -146,9 +166,23 @@ where
         node_id.children(&self.arena)
     }
 
+    pub(crate) fn childrens_indices_by_id(&self, id: Id) -> Vec<Id>
+    where
+        Id: Clone,
+    {
+        self.relations
+            .get_by_left(&id)
+            .map(|node_id| {
+                self.children_of(node_id)
+                    .flat_map(|child_node_id| self.relations.get_by_right(&child_node_id).cloned())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     pub(crate) fn children_by_id(&self, id: Id) -> Vec<&Node> {
-        self.id_to_node
-            .get(&id)
+        self.relations
+            .get_by_left(&id)
             .map(|node_id| {
                 self.children_of(node_id)
                     .flat_map(|child_node_id| self.node(&child_node_id))
@@ -158,8 +192,8 @@ where
     }
 
     pub(crate) fn children_by_id_mut(&mut self, id: Id) -> Vec<Unique<Node>> {
-        self.id_to_node
-            .get(&id)
+        self.relations
+            .get_by_left(&id)
             .copied()
             .map(|node_id| {
                 // INFO: here children twice collects into Vec<NodeId> and Vec<Unique<Node>> because
@@ -180,5 +214,63 @@ where
 
     pub(crate) fn traverse(&self, node_id: &NodeId) -> indextree::Traverse<'_, Node> {
         node_id.traverse(&self.arena)
+    }
+}
+
+struct Relations<Left, Right>
+where
+    Left: std::hash::Hash + Eq,
+    Right: std::hash::Hash + Eq,
+{
+    left_to_right: HashMap<Left, Right>,
+    right_to_left: HashMap<Right, Left>,
+}
+
+impl<Left, Right> Default for Relations<Left, Right>
+where
+    Left: std::hash::Hash + Eq,
+    Right: std::hash::Hash + Eq,
+{
+    fn default() -> Self {
+        Self {
+            left_to_right: HashMap::new(),
+            right_to_left: HashMap::new(),
+        }
+    }
+}
+
+impl<Left, Right> Relations<Left, Right>
+where
+    Left: std::hash::Hash + Eq,
+    Right: std::hash::Hash + Eq,
+{
+    fn make_relation(&mut self, left: Left, right: Right)
+    where
+        Left: Clone,
+        Right: Clone,
+    {
+        self.left_to_right.insert(left.clone(), right.clone());
+        self.right_to_left.insert(right, left);
+    }
+
+    fn remove_relation_by_left(&mut self, left: &Left) {
+        if let Some(right) = self.left_to_right.remove(left) {
+            self.right_to_left.remove(&right);
+        }
+    }
+
+    #[allow(unused)]
+    fn remove_relation_by_right(&mut self, right: &Right) {
+        if let Some(left) = self.right_to_left.remove(right) {
+            self.left_to_right.remove(&left);
+        }
+    }
+
+    fn get_by_left(&self, left: &Left) -> Option<&Right> {
+        self.left_to_right.get(left)
+    }
+
+    fn get_by_right(&self, right: &Right) -> Option<&Left> {
+        self.right_to_left.get(right)
     }
 }

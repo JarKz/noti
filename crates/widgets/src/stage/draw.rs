@@ -6,15 +6,15 @@ use crate::{
     widget::{WidgetBase, WidgetInformationContext},
 };
 
-pub(crate) trait DrawContext<T>:
+pub trait DrawContext<T>:
     WidgetInformationContext + LoadExtent<T, WidgetId> + AnimationQuery<WidgetId> + GetDebugOptions
 where
     T: Default + Copy,
 {
-    fn draw_widget(&self, widget_id: WidgetId, offset: &Offset<f32>, drawer: &mut Drawer);
+    fn draw_widget(&self, widget_id: &WidgetId, offset: &Offset<f32>, drawer: &mut Drawer);
 }
 
-pub(crate) trait Draw<C, T>: WidgetBase<C>
+pub trait Draw<C, T>: WidgetBase<C>
 where
     C: DrawContext<T>,
     T: Default + Copy + Into<f32>,
@@ -86,7 +86,7 @@ impl Drawer {
         &mut self,
         context: &C,
         offset: &Offset<f32>,
-        widget_id: WidgetId,
+        widget_id: &WidgetId,
     ) -> skia_safe::Image
     where
         C: DrawContext<f32>,

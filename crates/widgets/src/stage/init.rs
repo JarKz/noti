@@ -8,7 +8,7 @@ use crate::{
 };
 
 // TODO: add dirty flag management
-pub(crate) trait InitContext:
+pub trait InitContext:
     GenerateId
     + RegisterKey<WidgetKey, WidgetId>
     + GetState
@@ -34,7 +34,7 @@ impl<C> InitContext for C where
 {
 }
 
-pub(crate) trait Init<C>: WidgetBase<C>
+pub trait Init<C>: WidgetBase<C>
 where
     C: InitContext,
 {

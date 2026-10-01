@@ -7,10 +7,6 @@ use indextree::NodeId;
 
 use crate::{
     forest::{Forest, Get, GetCarefully},
-    stage::{
-        deinit::{Deinit, DeinitContext},
-        init::{Init, InitContext},
-    },
     types::identifiers::WidgetKey,
     widget::WidgetGetType,
 };
@@ -19,6 +15,12 @@ use crate::{
 pub(crate) struct RebuildContext {
     matched_keyed_nodes: MatchedKeyedNodes,
     operation_set: Vec<RebuildOperation>,
+}
+
+impl RebuildContext {
+    pub(crate) fn operation_set(&self) -> impl Iterator<Item = &RebuildOperation> {
+        self.operation_set.iter()
+    }
 }
 
 /// It assumes that both of widget trees (main and pending) have unique [WidgetKey]s. In this case,
@@ -51,40 +53,14 @@ impl MatchedKeyedNodes {
     }
 }
 
-enum RebuildOperation {
+pub(crate) enum RebuildOperation {
     Initialize { node_id: NodeId },
     Deinitialize { node_id: NodeId },
     Reuse { old_node: NodeId, new_node: NodeId },
 }
 
-pub trait Rebuild<C> {
-    fn rebuild(&mut self, context: &mut C);
-}
-
-impl<Id, Node, C> Rebuild<C> for Forest<Id, Node>
-where
-    Id: Hash + Eq,
-    Node: Get<Id> + GetCarefully<WidgetKey> + WidgetGetType + Init<C> + Deinit<C>,
-    C: InitContext + DeinitContext,
-{
-    fn rebuild(&mut self, context: &mut C) {
-        if self.pending_tree_root().is_none() {
-            return;
-        }
-
-        let mut rebuild_context = RebuildContext::default();
-        scan_forest(self, &mut rebuild_context);
-        positional_diffing(
-            self,
-            self.main_tree_root(),
-            self.pending_tree_root(),
-            &mut rebuild_context,
-        );
-        keyed_diffing(self, &mut rebuild_context);
-        perform_operation_set(self, &rebuild_context, context);
-
-        self.promote_pending_tree_root();
-    }
+pub trait RebuildTree {
+    fn rebuild_tree(&mut self);
 }
 
 pub(crate) fn scan_forest<Id, Node>(forest: &Forest<Id, Node>, context: &mut RebuildContext)
@@ -142,7 +118,7 @@ where
     }
 }
 
-fn positional_diffing<Id, Node>(
+pub(crate) fn positional_diffing<Id, Node>(
     forest: &Forest<Id, Node>,
     main_node_id: Option<&NodeId>,
     pending_node_id: Option<&NodeId>,
@@ -205,7 +181,7 @@ fn positional_diffing<Id, Node>(
                 iterator: &mut impl Iterator<Item = NodeId>,
                 context: &RebuildContext,
             ) -> Option<NodeId> {
-                while let Some(node_id) = iterator.next() {
+                for node_id in iterator.by_ref() {
                     if context.matched_keyed_nodes.contains_node_id(&node_id) {
                         continue;
                     }
@@ -239,7 +215,7 @@ fn positional_diffing<Id, Node>(
     }
 }
 
-fn keyed_diffing<Id, Node>(forest: &Forest<Id, Node>, context: &mut RebuildContext)
+pub(crate) fn keyed_diffing<Id, Node>(forest: &Forest<Id, Node>, context: &mut RebuildContext)
 where
     Id: Hash + Eq,
     Node: Get<Id> + WidgetGetType,
@@ -262,49 +238,5 @@ where
             Some(&node_in_pending_tree),
             context,
         );
-    }
-}
-
-fn perform_operation_set<Id, Node, C>(
-    forest: &mut Forest<Id, Node>,
-    rebuild_context: &RebuildContext,
-    context: &mut C,
-) where
-    Id: Hash + Eq,
-    Node: Get<Id> + Init<C> + Deinit<C>,
-    C: InitContext + DeinitContext,
-{
-    for operation in &rebuild_context.operation_set {
-        match operation {
-            RebuildOperation::Initialize { node_id } => {
-                let node = forest
-                    .node_mut(node_id)
-                    .expect("There must be a node in forest!");
-                node.init(context);
-                let id = node.get();
-                forest.make_relation(id, *node_id);
-            }
-            RebuildOperation::Deinitialize { node_id } => {
-                let node = forest
-                    .node_mut(node_id)
-                    .expect("There must be a node in forest!");
-                let id = node.get();
-                node.deinit(context);
-                forest.remove_relation(id);
-            }
-            RebuildOperation::Reuse { old_node, new_node } => {
-                let old_node = forest
-                    .node(old_node)
-                    .expect("There must be a node in forest!");
-                let new_node = forest
-                    .node_mut(new_node)
-                    .expect("There must be a node in forest!");
-
-                // TODO: in future implement the comparison between nodes to make a correct dirty
-                // flags in order correct invaliadion, measurement and etc.
-
-                todo!();
-            }
-        }
     }
 }

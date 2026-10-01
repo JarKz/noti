@@ -25,6 +25,7 @@ impl<T> StyleProperty<T> {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn map<F: FnOnce(&T) -> V, V>(&self, mapper: F) -> StyleProperty<V> {
         match self {
             StyleProperty::Explicit(val) => StyleProperty::Explicit(mapper(val)),

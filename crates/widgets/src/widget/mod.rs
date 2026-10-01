@@ -63,6 +63,15 @@ impl<T: WidgetInformation> GetCarefully<WidgetKey> for T {
     }
 }
 
+impl<C> GetCarefully<WidgetKey> for Box<dyn Widget<C>>
+where
+    C: WidgetContext,
+{
+    fn get_carefully(&self) -> Option<&WidgetKey> {
+        self.get_key()
+    }
+}
+
 pub trait WidgetGetType {
     /// Returns the type of this widget as a human-readable string.
     ///
@@ -71,10 +80,19 @@ pub trait WidgetGetType {
     fn get_type(&self) -> &'static str;
 }
 
+impl<C> WidgetGetType for Box<dyn Widget<C>>
+where
+    C: WidgetContext,
+{
+    fn get_type(&self) -> &'static str {
+        (**self).get_type()
+    }
+}
+
 pub trait WidgetInformationContext:
     WidgetTreeAccess<WidgetId> + ManageWidgetData<WidgetId>
 {
-    fn widget_sizing_mode(&self, widget_id: WidgetId) -> Option<SizingMode>;
+    fn widget_sizing_mode(&self, widget_id: &WidgetId) -> Option<SizingMode>;
 }
 
 pub trait WidgetSizingMode<C>
@@ -106,7 +124,7 @@ where
 {
 }
 
-pub(crate) trait WidgetContext:
+pub trait WidgetContext:
     WidgetInformationContext
     + InitContext
     + DeinitContext
@@ -130,7 +148,7 @@ impl<C> WidgetContext for C where
 {
 }
 
-pub(crate) trait Widget<C>:
+pub trait Widget<C>:
     WidgetBase<C>
     + Init<C>
     + Deinit<C>
@@ -354,7 +372,10 @@ macro_rules! make_widget {
                 .build()));
 
             $(
-                $context.append_child(node_id, $child_node_id);
+                {
+                    let child_node_id = $child_node_id;
+                    $context.append_child(node_id, child_node_id);
+                }
             )*
 
             node_id

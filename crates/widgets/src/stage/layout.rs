@@ -3,8 +3,7 @@ use crate::{
     types::WidgetId,
 };
 
-pub(crate) trait LayoutContext<T>:
-    LoadExtent<T, WidgetId> + ManageWidgetData<WidgetId>
+pub trait LayoutContext<T>: LoadExtent<T, WidgetId> + ManageWidgetData<WidgetId>
 where
     T: Default + Copy,
 {
@@ -17,7 +16,7 @@ where
 {
 }
 
-pub(crate) trait Layout<C, T>
+pub trait Layout<C, T>
 where
     C: LayoutContext<T>,
     T: Default + Copy,

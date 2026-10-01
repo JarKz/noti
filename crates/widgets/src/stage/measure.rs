@@ -5,11 +5,10 @@ use num_traits::FromPrimitive;
 use crate::{
     context::{
         AnimationQuery, LoadConstraints, LoadExtent, ManageConstraints, ManageDirtyFlags,
-        ManageExtent, ManageIntrinsic, ManageWidgetData, SaveConstraints, SaveExtent,
-        WidgetTreeAccess,
+        ManageExtent, ManageIntrinsic, SaveConstraints, SaveExtent,
     },
     types::{dirty_flags::DirtyFlags, Extent, Spacing, WidgetId},
-    widget::WidgetInformation,
+    widget::{WidgetInformation, WidgetInformationContext},
 };
 
 pub enum SizingMode {
@@ -26,16 +25,19 @@ impl SizingMode {
     }
 }
 
-pub(crate) trait MeasureContext<T>:
-    ManageDirtyFlags<WidgetId> + WidgetTreeAccess<WidgetId> + ManageWidgetData<WidgetId>
+pub trait MeasureContext<T>: WidgetInformationContext + ManageDirtyFlags<WidgetId>
 where
     T: Default + Copy,
 {
-    fn widget_intrinsic(&mut self, widget_id: WidgetId) -> Option<Intrinsic<T>>;
-    fn measure_widget(&mut self, widget_id: WidgetId, constraints: Constraints<Extent<T>>) -> Option<Extent<f32>>;
+    fn widget_intrinsic(&mut self, widget_id: &WidgetId) -> Option<Intrinsic<T>>;
+    fn measure_widget(
+        &mut self,
+        widget_id: &WidgetId,
+        constraints: Constraints<Extent<T>>,
+    ) -> Option<Extent<f32>>;
 }
 
-pub(crate) trait ManageMeasures<T, Id>:
+pub trait ManageMeasures<T, Id>:
     ManageIntrinsic<T, Id> + ManageExtent<T, Id> + ManageConstraints<T, Id> + AnimationQuery<Id>
 where
     T: Default + Copy,
@@ -51,7 +53,7 @@ where
 {
 }
 
-pub(crate) trait Measure<C, T>: WidgetInformation
+pub trait Measure<C, T>: WidgetInformation
 where
     T: Default + Copy + PartialEq,
     C: MeasureContext<T>,
@@ -102,14 +104,7 @@ where
             && !constraints_changed
             && cached_extent.is_some()
         {
-            // TODO: consider of making this more easy
-            for widget_id in context
-                .children_of(self.get_id())
-                .into_iter()
-                .map(|child| child.get_id())
-                .collect::<Vec<_>>()
-                .into_iter()
-            {
+            for widget_id in context.childrens_identifiers_of(self.get_id()) {
                 let child_constraints =
                     <C as LoadConstraints<T, WidgetId>>::load(context, widget_id)
                         .or_else(|| {
@@ -118,7 +113,7 @@ where
                         })
                         .unwrap();
 
-                context.measure_widget(widget_id, child_constraints);
+                context.measure_widget(&widget_id, child_constraints);
             }
 
             dirty_flags -= DirtyFlags::CHILD_NEEDS_MEASURE;

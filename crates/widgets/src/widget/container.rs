@@ -1,8 +1,7 @@
-use log::warn;
 use macros::{widget, widget_style};
 
 use crate::{
-    context::{LoadExtent, ManageIntrinsic, ManageWidgetData},
+    context::{LoadExtent, ManageIntrinsic},
     decorator::{
         content::Content, DecoratorExt, DrawDecorator, EventHitTestDecorator, MeasureDecorator,
     },
@@ -26,8 +25,7 @@ use crate::{
         Color, Point,
     },
     widget::{
-        flex_container::FlexContainer, WidgetGetType, WidgetInformation, WidgetInformationContext,
-        WidgetSizingMode,
+        flex_container::FlexContainer, WidgetGetType, WidgetInformationContext, WidgetSizingMode,
     },
 };
 
@@ -114,10 +112,6 @@ where
         if let Some(WidgetStyle::Container(container_style)) = context.get_style(&self.class) {
             self.configure(container_style.clone());
         }
-
-        if let Some(child) = &mut self.child {
-            child.init(context);
-        }
     }
 }
 
@@ -147,11 +141,11 @@ where
         C: ManageIntrinsic<f32, WidgetId>,
     {
         Content::intrinsic_fn(|| {
-            if let Some(child) = &self.child {
-                child.intrinsic(context)
-            } else {
-                measure::Intrinsic::default()
-            }
+            context
+                .childrens_identifiers_of(self.id)
+                .first()
+                .and_then(|child_widget_id| context.widget_intrinsic(child_widget_id))
+                .unwrap_or_default()
         })
         .spacing(self.spacing.unwrap_or_default())
         .box_size(
@@ -166,11 +160,13 @@ where
         C: ManageMeasures<f32, WidgetId>,
     {
         Content::measure_fn(|container_constraints| {
-            if let Some(child) = &self.child {
-                child.measure(context, container_constraints)
-            } else {
-                Extent::default()
-            }
+            context
+                .childrens_identifiers_of(self.id)
+                .first()
+                .and_then(|child_widget_id| {
+                    context.measure_widget(child_widget_id, container_constraints)
+                })
+                .unwrap_or_default()
         })
         .spacing(self.spacing.unwrap_or_default())
         .box_size(
@@ -185,15 +181,7 @@ impl<C> Layout<C, f32> for Container
 where
     C: LayoutContext<f32>,
 {
-    fn layout(&mut self, context: &mut C) {
-        if context.load(self.id).is_none() {
-            warn!("Container widget with id {} didn't measured!", *self.id);
-        }
-
-        if let Some(child) = &mut self.child {
-            child.layout(context);
-        }
-    }
+    fn layout(&mut self, _context: &mut C) {}
 }
 
 impl<C> Draw<C, f32> for Container
@@ -209,10 +197,10 @@ where
     ) {
         Content::draw_fn(
             |offset: &Offset<f32>, provided_extent: Extent<f32>, drawer: &mut Drawer| {
-                if let Some(child) = &self.child {
+                if let Some(child_widget_id) = context.childrens_identifiers_of(self.id).first() {
                     let alignment = self.alignment.clone().unwrap_or_default();
                     let child_extent =
-                        <C as LoadExtent<f32, WidgetId>>::load(context, child.get_id())
+                        <C as LoadExtent<f32, WidgetId>>::load(context, *child_widget_id)
                             .unwrap_or_default();
 
                     let horizontal_start = alignment
@@ -223,7 +211,7 @@ where
                         .get_start(provided_extent.height, child_extent.height);
 
                     let offset_for_child = *offset + Offset::new(horizontal_start, vertical_start);
-                    child.draw(context, &offset_for_child, drawer);
+                    context.draw_widget(child_widget_id, &offset_for_child, drawer);
 
                     if context.get_debug_options().show_layout_bounds {
                         draw_debug_bounds(drawer.surface.canvas(), *offset, provided_extent);
@@ -255,15 +243,20 @@ where
     ) -> HitTestResult {
         Content::hit_test_fn(
             |local_coords: Point<f32>, _provided_extent: Extent<f32>, router: &mut EventRouter| {
-                if let Some(child) = &self.child {
-                    let result = child.hit_test(context, local_coords, router);
-
-                    match result {
+                if let Some(hit_result) =
+                    context
+                        .childrens_identifiers_of(self.id)
+                        .first()
+                        .and_then(|child_widget_id| {
+                            context.hit_test_widget(child_widget_id, local_coords, router)
+                        })
+                {
+                    match hit_result {
                         HitTestResult::Hit => router.set_next_index(self.id, 0),
                         HitTestResult::Missed | HitTestResult::Failed => (),
                     }
 
-                    result
+                    hit_result
                 } else {
                     HitTestResult::Missed
                 }
@@ -290,8 +283,8 @@ where
         _next_child: usize,
         router: &EventRouter,
     ) {
-        if let Some(child) = &mut self.child {
-            child.route_events(context, router);
+        if let Some(child_widget_id) = context.childrens_identifiers_of(self.id).first() {
+            context.route_events_to_widget(child_widget_id, router);
         }
     }
 }

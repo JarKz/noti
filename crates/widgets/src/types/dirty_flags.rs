@@ -7,19 +7,19 @@ bitflags::bitflags! {
     /// They prevent redundant calculations by marking exactly what needs
     /// synchronization or re-measurement in the current frame.
     #[derive(Debug, Clone, Copy)]
-    pub(crate) struct DirtyFlags: u8 {
+    pub struct DirtyFlags: u8 {
         const NEEDS_REBUILD       = 1;
+
+        const NEEDS_UPDATE_STYLES = 1 << 1;
 
         /// The widget's own geometric constraints or intrinsic sizes are invalid.
         /// Triggers a re-calculation of the cached size in the Arena.
-        const NEEDS_MEASURE       = 1 << 1;
+        const NEEDS_MEASURE       = 1 << 2;
 
         /// One or more descendants are marked with NEEDS_MEASURE.
-        const CHILD_NEEDS_MEASURE = 1 << 2;
+        const CHILD_NEEDS_MEASURE = 1 << 3;
 
-        const NEEDS_UPDATE_STYLES = 1 << 3;
-
-        //TODO: implement dirty flags for layouting
+        const NEEDS_LAYOUT        = 1 << 4;
     }
 }
 
@@ -44,7 +44,7 @@ where
         }
 
         match context
-            .widget_sizing_mode(current_id)
+            .widget_sizing_mode(&current_id)
             .expect("The widget must exist in a tree!")
         {
             crate::stage::measure::SizingMode::Fixed => {

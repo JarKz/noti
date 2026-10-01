@@ -14,7 +14,7 @@ use crate::{
     widget::{WidgetBase, WidgetInformationContext},
 };
 
-pub(crate) trait DeinitContext:
+pub trait DeinitContext:
     WidgetInformationContext
     + UnregisterKey<WidgetKey>
     + StateSubscription<WidgetId>
@@ -42,7 +42,7 @@ impl<C> DeinitContext for C where
 ///
 /// But if a widget have some unrelated to a Context runtime data or related to it states, better to free
 /// it implementing the [Deinit::on_deinit] method.
-pub(crate) trait Deinit<C>: WidgetBase<C>
+pub trait Deinit<C>: WidgetBase<C>
 where
     C: DeinitContext,
 {
