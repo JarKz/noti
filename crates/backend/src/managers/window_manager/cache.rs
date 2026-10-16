@@ -28,7 +28,7 @@ impl CachedLayout {
     ///
     /// Returns `None` if the layout is invalid or the file is missing.
     fn load_layout(path: &Path) -> Option<WidgetEnum> {
-        match filetype::parse_layout(path) {
+        match dsl::parse_layout(path) {
             Ok(widget) => Some(widget),
             Err(err) => {
                 warn!(

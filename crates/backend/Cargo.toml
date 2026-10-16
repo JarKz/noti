@@ -13,7 +13,7 @@ dbus.workspace = true
 config.workspace = true
 widgets.workspace = true
 shared.workspace = true
-filetype.path = "../filetype"
+dsl.path = "../dsl"
 
 anyhow.workspace = true
 async-io.workspace = true

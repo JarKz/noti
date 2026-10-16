@@ -1,0 +1,81 @@
+use lalrpop_util::ParseError;
+use crate::ast;
+
+grammar;
+
+pub(crate) Input: ast::ScopeDeclaration = <InScopeDeclaration+> => ast::ScopeDeclaration {
+    kind: ast::ScopeKind::Global,
+    children: <>,
+};
+
+pub(crate) AliasDeclaration: ast::AliasDeclaration =
+    "alias" <name:Ident> "=" <replacement:AliasReplacement> ";" => ast::AliasDeclaration { <> };
+
+pub(crate) AliasReplacement: ast::AliasReplacement = {
+  WidgetDeclaration => ast::AliasReplacement::Widget(<>),
+  TypeDeclaration => ast::AliasReplacement::Type(<>),
+  TypePath => ast::AliasReplacement::Path(<>),
+};
+
+pub(crate) StateDeclaration: ast::StateDeclaration =
+    "state" <name:Ident> "=" <value:Literal> ";" => ast::StateDeclaration { <> };
+
+pub(crate) InScopeDeclaration: ast::InScopeDeclaration = {
+    AliasDeclaration => ast::InScopeDeclaration::Alias(<>),
+    StateDeclaration => ast::InScopeDeclaration::State(<>),
+    WidgetDeclaration => ast::InScopeDeclaration::Widget(<>),
+};
+
+pub(crate) WidgetDeclaration: ast::ScopeDeclaration =
+    <type_path:TypePath> "("
+        <fields:Fields>
+    ")" "{"
+        <scope_declarations:InScopeDeclaration*>
+    "}" => {
+        ast::ScopeDeclaration {
+            kind: ast::ScopeKind::Widget(
+                ast::WidgetDeclaration {
+                    type_path,
+                    fields,
+                }
+            ),
+            children: scope_declarations,
+        }
+    };
+
+pub(crate) Field: ast::Field = <name:Ident> "=" <value:FieldValue> => ast::Field { <> };
+pub(crate) FieldValue: ast::FieldValue = { 
+  Ident => ast::FieldValue::State(<>), 
+  Literal => ast::FieldValue::Literal(<>), 
+  TypeDeclaration => ast::FieldValue::Type(<>),
+};
+
+pub(crate) TypeDeclaration: ast::TypeDeclaration = <type_path:TypePath> "(" <fields:Fields> ")" =>
+    ast::TypeDeclaration { <> };
+
+pub(crate) TypePath: ast::TypePath = <mut v:(<Ident> "::")*> <e:Ident> => ast::TypePath({
+    v.push(e);
+    v
+});
+
+pub(crate) Fields: Vec<ast::Field> = <mut fields:(<Field> ",")*> <field:Field?> =>
+    match field {
+        None => fields,
+        Some(field) => {
+            fields.push(field);
+            fields
+        }
+    };
+
+pub(crate) Literal: ast::Literal = { 
+  UIntLiteral => ast::Literal::UInt(<>),
+  StringLiteral => ast::Literal::QuotedString(<>),
+};
+
+pub(crate) Ident: String = <r"[A-Za-z][A-Za-z0-9_]*"> => <>.to_owned();
+pub(crate) UIntLiteral: u64 = <r"[0-9]+">
+                            =>? str::parse::<u64>(<>)
+                                    .map_err(|_| ParseError::User {
+                                        error: "Integer literal is outside the range of u64." 
+                                    });
+pub(crate) StringLiteral: String = <r#""[[:word:]\- ]*""#> => <>.to_owned();

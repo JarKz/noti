@@ -30,7 +30,7 @@ members = [
   "crates/dbus",
   "crates/macros",
   "crates/widgets",
-  "crates/filetype",
+  "crates/dsl",
   "crates/shared"
 ]
 

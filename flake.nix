@@ -140,7 +140,7 @@
                 root = unfilteredRoot;
                 fileset = pkgs.lib.fileset.unions [
                   ((craneLib toolchain).fileset.commonCargoSources unfilteredRoot)
-                  ./crates/filetype/src/layout.pest
+                  ./crates/dsl/src/grammar.lalrpop
                   ./assets/default-notification-sound.mp3
                 ];
               };
