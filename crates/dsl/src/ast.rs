@@ -100,7 +100,7 @@ pub struct WidgetDeclaration {
 ///
 /// Uses Rust-like syntax (e.g., `path::to::SomeWidget`) and contains only a vector of path elements
 /// (using the same example: `["path", "to", "SomeWidget"]`).
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct TypePath(pub Vec<String>);
 
 /// Represents a field in a type, including widgets.
@@ -111,7 +111,7 @@ pub struct TypePath(pub Vec<String>);
 /// // Or
 /// size = 4
 /// ```
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Field {
     pub name: String,
     pub value: FieldValue,
@@ -120,7 +120,7 @@ pub struct Field {
 /// Represents the right-hand value assigned to a field.
 ///
 /// A right-hand value can belong to one of three categories: literals, types, or states.
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum FieldValue {
     State(String),
     Literal(Literal),
@@ -142,7 +142,7 @@ pub struct StateDeclaration {
 }
 
 /// Represents a literal value that can be assigned to something.
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Literal {
     /// A string literal from the input, preserved as written, including double quotes.
     QuotedString(String),
@@ -163,7 +163,7 @@ pub enum Literal {
 /// ```noti
 /// Border(size = 8)
 /// ```
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct TypeDeclaration {
     pub type_path: TypePath,
     pub fields: Vec<Field>,

@@ -5,6 +5,8 @@ mod parser;
 
 mod ast;
 mod runtime_data;
+mod tree_builder;
+mod analysis;
 
 struct NotiDsl {}
 
