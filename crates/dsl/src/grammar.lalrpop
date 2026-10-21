@@ -1,15 +1,23 @@
-use lalrpop_util::ParseError;
+use lalrpop_util::{ParseError, ErrorRecovery};
 use crate::ast;
+use widgets::types::Bgra;
 
-grammar;
+grammar<'err>(errors: &'err mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>);
 
-pub(crate) Input: ast::ScopeDeclaration = <InScopeDeclaration+> => ast::ScopeDeclaration {
-    kind: ast::ScopeKind::Global,
-    children: <>,
-};
+Spanned<T>: ast::Spanned<T> = <start:@L> <value:T> <end:@R> => ast::Spanned::new(value, start, end);
+
+pub(crate) Input: ast::Spanned<ast::ScopeDeclaration> = <start:@L> <children:Spanned<InScopeDeclaration>+> <end:@R> 
+    => ast::Spanned::new(
+        ast::ScopeDeclaration {
+            kind: ast::ScopeKind::Global,
+            children: children.into_iter().flat_map(|child| child.rewrap_option()).collect(),
+        },
+        start,
+        end
+    );
 
 pub(crate) AliasDeclaration: ast::AliasDeclaration =
-    "alias" <name:Ident> "=" <replacement:AliasReplacement> ";" => ast::AliasDeclaration { <> };
+    "alias" <name:Spanned<Ident>> "=" <replacement:Spanned<AliasReplacement>> ";" => ast::AliasDeclaration { <> };
 
 pub(crate) AliasReplacement: ast::AliasReplacement = {
   WidgetDeclaration => ast::AliasReplacement::Widget(<>),
@@ -18,47 +26,57 @@ pub(crate) AliasReplacement: ast::AliasReplacement = {
 };
 
 pub(crate) StateDeclaration: ast::StateDeclaration =
-    "state" <name:Ident> "=" <value:Literal> ";" => ast::StateDeclaration { <> };
+    "state" <name:Spanned<Ident>> "=" <value:Spanned<Literal>> ";" => ast::StateDeclaration { <> };
 
-pub(crate) InScopeDeclaration: ast::InScopeDeclaration = {
-    AliasDeclaration => ast::InScopeDeclaration::Alias(<>),
-    StateDeclaration => ast::InScopeDeclaration::State(<>),
-    WidgetDeclaration => ast::InScopeDeclaration::Widget(<>),
+pub(crate) InScopeDeclaration: Option<ast::InScopeDeclaration> = {
+    AliasDeclaration => Some(ast::InScopeDeclaration::Alias(<>)),
+    StateDeclaration => Some(ast::InScopeDeclaration::State(<>)),
+    WidgetDeclaration => Some(ast::InScopeDeclaration::Widget(<>)),
+    ! => {
+        errors.push(<>);
+        None
+    }
 };
 
 pub(crate) WidgetDeclaration: ast::ScopeDeclaration =
-    <type_path:TypePath> "("
+    <start:@L>
+    <type_path:Spanned<TypePath>> "("
         <fields:Fields>
-    ")" "{"
-        <scope_declarations:InScopeDeclaration*>
-    "}" => {
-        ast::ScopeDeclaration {
+    ")" <end:@R> "{"
+        <scope_declarations:Spanned<InScopeDeclaration>*>
+    "}" => ast::ScopeDeclaration {
             kind: ast::ScopeKind::Widget(
-                ast::WidgetDeclaration {
-                    type_path,
-                    fields,
-                }
+                ast::Spanned::new(
+                    ast::WidgetDeclaration {
+                        type_path,
+                        fields,
+                    },
+                    start,
+                    end
+                )
             ),
-            children: scope_declarations,
-        }
-    };
+            children: scope_declarations.into_iter()
+                .flat_map(|declaration| declaration.rewrap_option())
+                .collect(),
+        };
 
-pub(crate) Field: ast::Field = <name:Ident> "=" <value:FieldValue> => ast::Field { <> };
+pub(crate) Field: ast::Field = <name:Spanned<Ident>> "=" <value:Spanned<FieldValue>> => ast::Field { <> };
 pub(crate) FieldValue: ast::FieldValue = { 
   Ident => ast::FieldValue::State(<>), 
   Literal => ast::FieldValue::Literal(<>), 
   TypeDeclaration => ast::FieldValue::Type(<>),
 };
 
-pub(crate) TypeDeclaration: ast::TypeDeclaration = <type_path:TypePath> "(" <fields:Fields> ")" =>
+pub(crate) TypeDeclaration: ast::TypeDeclaration = <type_path:Spanned<TypePath>> "(" <fields:Fields> ")" =>
     ast::TypeDeclaration { <> };
 
-pub(crate) TypePath: ast::TypePath = <mut v:(<Ident> "::")*> <e:Ident> => ast::TypePath({
-    v.push(e);
-    v
-});
+pub(crate) TypePath: ast::TypePath<ast::Spanned<String>> = <mut v:(<Spanned<Ident>> "::")*> <e:Spanned<Ident>> 
+    => ast::TypePath({
+        v.push(e);
+        v
+    });
 
-pub(crate) Fields: Vec<ast::Field> = <mut fields:(<Field> ",")*> <field:Field?> =>
+Fields: Vec<ast::Spanned<ast::Field>> = <mut fields:(<Spanned<Field>> ",")*> <field:Spanned<Field>?> =>
     match field {
         None => fields,
         Some(field) => {
@@ -69,7 +87,9 @@ pub(crate) Fields: Vec<ast::Field> = <mut fields:(<Field> ",")*> <field:Field?> 
 
 pub(crate) Literal: ast::Literal = { 
   UIntLiteral => ast::Literal::UInt(<>),
-  StringLiteral => ast::Literal::QuotedString(<>),
+  StringLiteral => ast::Literal::String(<>),
+  BoolLiteral => ast::Literal::Bool(<>),
+  ColorLiteral => ast::Literal::Color(<>),
 };
 
 pub(crate) Ident: String = <r"[A-Za-z][A-Za-z0-9_]*"> => <>.to_owned();
@@ -78,4 +98,28 @@ pub(crate) UIntLiteral: u64 = <r"[0-9]+">
                                     .map_err(|_| ParseError::User {
                                         error: "Integer literal is outside the range of u64." 
                                     });
-pub(crate) StringLiteral: String = <r#""[[:word:]\- ]*""#> => <>.to_owned();
+pub(crate) StringLiteral: String = <s:r#""[[:word:]\- ]*""#> => 
+    s.strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .unwrap_or(s)
+        .to_owned();
+pub(crate) BoolLiteral: bool = {
+    "true" => true,
+    "false" => false,
+};
+
+pub(crate) ColorLiteral: ast::Color = {
+  RgbaLiteral => ast::Color::Rgba(<>),
+  "linear-gradient" "(" <angle:AngleLiteral> "," <colors:RgbaColors> ")" => ast::Color::LinearGradient { <> },
+};
+
+AngleLiteral: i16 = <r"-?[0-9]{1,3}deg"> =>
+    <>.trim_end_matches("deg").parse::<i16>().expect("Correct digits from angle literal");
+
+RgbaColors: Vec<Bgra<u8>> = <mut rgba_colors:(<RgbaLiteral> ",")*> <rgba:RgbaLiteral> => {
+    rgba_colors.push(rgba);
+    rgba_colors
+};
+
+pub(crate) RgbaLiteral: Bgra<u8> = <r"#([0-9A-Fa-f]{8}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})">
+    => Bgra::<u8>::try_from(<>).expect("The parser must give valid hex color");

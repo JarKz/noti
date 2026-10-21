@@ -4,7 +4,6 @@ use std::{
 };
 
 use anyhow::Context;
-use shared::value::TryFromValue;
 
 /// Represents a drawable color or paint that can be applied to widgets.
 ///
@@ -52,9 +51,6 @@ impl Default for Color {
         Color::Fill(Bgra::default())
     }
 }
-
-// TODO: implement correct algorithm of parsing the color
-impl TryFromValue for Color {}
 
 /// Describes a linear gradient, including direction and computed
 /// color-stop information for rendering.
@@ -147,7 +143,7 @@ impl Bgra<f32> {
 }
 
 impl Bgra<u8> {
-    fn pre_mul_alpha(self) -> Self {
+    pub fn pre_mul_alpha(self) -> Self {
         if self.alpha == 255 {
             return self;
         }
@@ -184,31 +180,10 @@ impl From<Bgra<f32>> for Bgra<u8> {
     }
 }
 
-impl TryFromValue for Bgra<f32> {
-    fn try_from_string(value: String) -> Result<Self, shared::error::ConversionError> {
-        <Bgra<u8> as TryFrom<_>>::try_from(value.clone())
-            .map(Into::into)
-            .map_err(|_| shared::error::ConversionError::InvalidValue {
-                expected: "#RGB, #RRGGBB or #RRGGBBAA",
-                actual: value,
-            })
-    }
-}
-
-impl TryFromValue for Bgra<u8> {
-    fn try_from_string(value: String) -> Result<Self, shared::error::ConversionError> {
-        <Self as TryFrom<_>>::try_from(value.clone()).map_err(|_| {
-            shared::error::ConversionError::InvalidValue {
-                expected: "#RGB, #RRGGBB or #RRGGBBAA",
-                actual: value,
-            }
-        })
-    }
-}
-impl TryFrom<String> for Bgra<u8> {
+impl TryFrom<&str> for Bgra<u8> {
     type Error = anyhow::Error;
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
         const BASE: u32 = 16;
 
         if value.len() == 4 {

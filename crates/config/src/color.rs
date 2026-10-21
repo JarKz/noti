@@ -81,7 +81,7 @@ impl TryFrom<String> for Rgba {
     type Error = anyhow::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        <widgets::types::Bgra<u8> as TryFrom<_>>::try_from(value).map(Into::into)
+        <widgets::types::Bgra<u8> as TryFrom<_>>::try_from(&*value).map(Into::into)
     }
 }
 
