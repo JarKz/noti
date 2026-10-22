@@ -1,6 +1,6 @@
 use std::{collections::HashMap, marker::PhantomData};
 
-use serde::{de::Visitor, Deserialize};
+use serde::{Deserialize, de::Visitor};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Spacing {
@@ -189,25 +189,25 @@ margin = {{ top = 5, horizontal = 10 }}"#
                     return Err(serde::de::Error::invalid_value(
                         serde::de::Unexpected::Str(key.as_str()),
                         &self,
-                    ))
+                    ));
                 }
                 "vertical" if table.contains_key("top") || table.contains_key("bottom") => {
                     return Err(serde::de::Error::invalid_value(
                         serde::de::Unexpected::Str(key.as_str()),
                         &self,
-                    ))
+                    ));
                 }
                 "right" | "left" if table.contains_key("horizontal") => {
                     return Err(serde::de::Error::invalid_value(
                         serde::de::Unexpected::Str(key.as_str()),
                         &self,
-                    ))
+                    ));
                 }
                 "horizontal" if table.contains_key("right") || table.contains_key("left") => {
                     return Err(serde::de::Error::invalid_value(
                         serde::de::Unexpected::Str(key.as_str()),
                         &self,
-                    ))
+                    ));
                 }
                 _ => (),
             }

@@ -3,7 +3,7 @@ use std::{collections::HashMap, marker::PhantomData, path::PathBuf, time::Durati
 use dbus::notification::Urgency;
 use log::warn;
 use macros::ConfigProperty;
-use serde::{de::Visitor, Deserialize};
+use serde::{Deserialize, de::Visitor};
 use widgets::animations::{AnimationKind, Fade, Pop, Translate};
 
 use crate::{
@@ -79,11 +79,11 @@ public! {
 
 impl TomlDisplayConfig {
     pub(super) fn use_relative_path(&mut self, mut prefix: PathBuf) {
-        if let Some(Layout::FromPath { ref mut path_buf }) = self.layout.as_mut() {
-            if path_buf.is_relative() {
-                prefix.extend(&*path_buf);
-                *path_buf = prefix;
-            }
+        if let Some(Layout::FromPath { path_buf }) = self.layout.as_mut()
+            && path_buf.is_relative()
+        {
+            prefix.extend(&*path_buf);
+            *path_buf = prefix;
         };
     }
 }
@@ -521,7 +521,7 @@ critical = 0 # but for critical the default value will be overriden
                     return Err(serde::de::Error::unknown_variant(
                         &key,
                         &["default", "low", "normal", "critical"],
-                    ))
+                    ));
                 }
             }
         }

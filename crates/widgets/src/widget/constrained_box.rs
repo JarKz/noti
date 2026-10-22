@@ -1,19 +1,25 @@
-use crate::events::{EventContext, EventHandling, EventHitTest};
-use crate::stage::deinit::{Deinit, DeinitContext};
-use crate::stage::draw::{Draw, DrawContext};
-use crate::stage::init::{Init, InitContext};
-use crate::stage::invalidate::{Invalidate, InvalidateContext};
-use crate::stage::layout::{Layout, LayoutContext};
-use crate::stage::measure::{Constraints, Measure, MeasureContext};
-use crate::types::{DirtyFlags, Extent};
-use crate::widget::{WidgetGetType, WidgetInformationContext, WidgetKey, WidgetSizingMode};
-use crate::WidgetId;
 use macros::widget;
 
-/// Creates a constraint box for a single child that overrides the constraints during measurement stage.
+use crate::{
+    WidgetId,
+    events::{EventContext, EventHandling, EventHitTest},
+    stage::{
+        deinit::{Deinit, DeinitContext},
+        draw::{Draw, DrawContext},
+        init::{Init, InitContext},
+        invalidate::{Invalidate, InvalidateContext},
+        layout::{Layout, LayoutContext},
+        measure::{Constraints, Measure, MeasureContext},
+    },
+    types::{DirtyFlags, Extent},
+    widget::{WidgetGetType, WidgetInformationContext, WidgetKey, WidgetSizingMode},
+};
+
+/// Creates a constraint box for a single child that overrides the constraints
+/// during measurement stage.
 ///
-/// NOTE: The maximum must be greater than or equal to the minimum for each dimension.
-/// Otherwise the behavior will be undefined!
+/// NOTE: The maximum must be greater than or equal to the minimum for each
+/// dimension. Otherwise the behavior will be undefined!
 #[widget(kind = minimal)]
 #[derive(bon::Builder, Default, Debug)]
 pub struct ConstrainedBox {
@@ -71,10 +77,10 @@ where
             self.max_width,
             self.min_height,
             self.max_height,
-        ) {
-            if min_width == max_width && min_height == max_height {
-                return crate::stage::measure::SizingMode::Fixed;
-            }
+        ) && min_width == max_width
+            && min_height == max_height
+        {
+            return crate::stage::measure::SizingMode::Fixed;
         }
 
         crate::stage::measure::SizingMode::Dynamic
@@ -139,8 +145,9 @@ where
     {
         /// Finds the intersection between both constraints.
         ///
-        /// If there's no intersection between them, then picks optimal from one of both constraints
-        /// by such rule: find minimum of both maximums and use it as new min and max.
+        /// If there's no intersection between them, then picks optimal from one
+        /// of both constraints by such rule: find minimum of both
+        /// maximums and use it as new min and max.
         fn find_intersection(
             left_constraints: Constraints<f32>,
             right_constraints: Constraints<f32>,

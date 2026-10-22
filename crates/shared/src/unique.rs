@@ -13,7 +13,8 @@ use std::{
 ///
 /// The creator of `Unique` must guarantee that:
 ///
-/// - the pointed-to value remains allocated for the entire lifetime of `Unique`;
+/// - the pointed-to value remains allocated for the entire lifetime of
+///   `Unique`;
 /// - the pointed-to value is not accessed through another reference or pointer
 ///   while `Unique` provides access to it;
 /// - the value is not moved while `Unique` exists;
@@ -72,7 +73,7 @@ impl<T: ?Sized> Unique<T> {
     /// This method is intended for abstractions that maintain these guarantees
     /// through an external ownership and lifetime invariant.
     pub unsafe fn into_mut(&mut self) -> &'static mut T {
-        self.ptr.as_mut()
+        unsafe { self.ptr.as_mut() }
     }
 }
 

@@ -29,24 +29,24 @@ where
         if let Some(width) = self.width {
             new_extent.width = width;
 
-            if self.height.is_none() {
-                if let Some(ratio) = self.ratio {
-                    let height = width / ratio;
+            if self.height.is_none()
+                && let Some(ratio) = self.ratio
+            {
+                let height = width / ratio;
 
-                    new_extent.height = height;
-                }
+                new_extent.height = height;
             }
         }
 
         if let Some(height) = self.height {
             new_extent.height = height;
 
-            if self.width.is_none() {
-                if let Some(ratio) = self.ratio {
-                    let width = height * ratio;
+            if self.width.is_none()
+                && let Some(ratio) = self.ratio
+            {
+                let width = height * ratio;
 
-                    new_extent.width = width;
-                }
+                new_extent.width = width;
             }
         }
 
@@ -66,11 +66,11 @@ where
             intrinsic.min.width = width;
             intrinsic.max.width = width;
 
-            if self.height.is_none() {
-                if let Some(ratio) = self.ratio {
-                    intrinsic.min.height = width / ratio;
-                    intrinsic.max.height = width / ratio;
-                }
+            if self.height.is_none()
+                && let Some(ratio) = self.ratio
+            {
+                intrinsic.min.height = width / ratio;
+                intrinsic.max.height = width / ratio;
             }
         }
 
@@ -78,11 +78,11 @@ where
             intrinsic.min.height = height;
             intrinsic.max.height = height;
 
-            if self.width.is_none() {
-                if let Some(ratio) = self.ratio {
-                    intrinsic.min.width = height * ratio;
-                    intrinsic.max.width = height * ratio;
-                }
+            if self.width.is_none()
+                && let Some(ratio) = self.ratio
+            {
+                intrinsic.min.width = height * ratio;
+                intrinsic.max.width = height * ratio;
             }
         }
 
@@ -96,11 +96,11 @@ where
             new_constraints.min.width = width;
             new_constraints.max.width = width;
 
-            if self.height.is_none() {
-                if let Some(ratio) = self.ratio {
-                    new_constraints.min.height = width / ratio;
-                    new_constraints.max.height = width / ratio;
-                }
+            if self.height.is_none()
+                && let Some(ratio) = self.ratio
+            {
+                new_constraints.min.height = width / ratio;
+                new_constraints.max.height = width / ratio;
             }
         }
 
@@ -108,28 +108,29 @@ where
             new_constraints.min.height = height;
             new_constraints.max.height = height;
 
-            if self.width.is_none() {
-                if let Some(ratio) = self.ratio {
-                    new_constraints.min.width = height * ratio;
-                    new_constraints.max.width = height * ratio;
-                }
+            if self.width.is_none()
+                && let Some(ratio) = self.ratio
+            {
+                new_constraints.min.width = height * ratio;
+                new_constraints.max.width = height * ratio;
             }
         }
 
-        if self.width.is_none() && self.height.is_none() {
-            if let Some(ratio) = self.ratio {
-                let mut proportional_width = new_constraints.max.width;
-                let mut proportional_height = proportional_width / ratio;
+        if self.width.is_none()
+            && self.height.is_none()
+            && let Some(ratio) = self.ratio
+        {
+            let mut proportional_width = new_constraints.max.width;
+            let mut proportional_height = proportional_width / ratio;
 
-                if proportional_height > new_constraints.max.height {
-                    proportional_height = new_constraints.max.height;
-                    proportional_width = proportional_height * ratio;
-                }
-
-                let fixed_extent = Extent::new(proportional_width, proportional_height);
-                new_constraints.min = fixed_extent;
-                new_constraints.max = fixed_extent;
+            if proportional_height > new_constraints.max.height {
+                proportional_height = new_constraints.max.height;
+                proportional_width = proportional_height * ratio;
             }
+
+            let fixed_extent = Extent::new(proportional_width, proportional_height);
+            new_constraints.min = fixed_extent;
+            new_constraints.max = fixed_extent;
         }
 
         self.next

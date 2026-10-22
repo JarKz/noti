@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
+    Token,
     parse::{Parse, Parser},
     parse_macro_input,
     spanned::Spanned,
-    Token,
 };
 
 use crate::{general::Structure, propagate_err};
@@ -36,12 +36,12 @@ fn widget_structure(
     field_attributes: &HashMap<syn::Ident, FieldAttributes>,
 ) -> proc_macro2::TokenStream {
     let Structure {
-        ref visibility,
-        ref struct_token,
-        ref attributes,
-        ref name,
-        ref braces,
-        ref fields,
+        visibility,
+        struct_token,
+        attributes,
+        name,
+        braces,
+        fields,
     } = structure;
 
     let attributes = attributes
@@ -168,7 +168,7 @@ fn impl_widget_information(
     structure: &Structure,
     _macro_attributes: &WidgetAttributes,
 ) -> proc_macro2::TokenStream {
-    let Structure { ref name, .. } = structure;
+    let Structure { name, .. } = structure;
 
     quote! {
         impl crate::widget::WidgetInformation for #name {
@@ -195,7 +195,7 @@ fn impl_widget(
     structure: &Structure,
     macro_attributes: &WidgetAttributes,
 ) -> proc_macro2::TokenStream {
-    let Structure { ref name, .. } = structure;
+    let Structure { name, .. } = structure;
 
     let fn_outer_spacing = quote! {
         fn outer_spacing(&self) -> Spacing {
@@ -237,7 +237,7 @@ fn impl_widget_diff(
     widget_attributes: &WidgetAttributes,
     field_attributes: &HashMap<syn::Ident, FieldAttributes>,
 ) -> proc_macro2::TokenStream {
-    let Structure { ref name, .. } = structure;
+    let Structure { name, .. } = structure;
 
     let mut checks = proc_macro2::TokenStream::new();
     field_attributes
@@ -421,7 +421,7 @@ fn take_callbacks(structure: &mut Structure) -> syn::Result<Vec<Callback>> {
                 return Err(syn::Error::new(
                     attribute_content.delimiter.span().span(),
                     "Expected parenthesis, but got different surrounding brackets!",
-                ))
+                ));
             }
         }
 

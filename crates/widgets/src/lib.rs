@@ -14,7 +14,7 @@ use crate::{
     },
     events::{EventManager, RawEvent},
     stage::{draw::DrawContext, measure::Constraints, rebuild::RebuildTree},
-    types::{dirty_flags::DirtyFlags, Extent, Point, WidgetId},
+    types::{Extent, Point, WidgetId, dirty_flags::DirtyFlags},
 };
 
 pub struct WidgetSystem {

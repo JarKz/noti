@@ -4,7 +4,8 @@ use shared::value::TryFromValue;
 
 use crate::types::Extent;
 
-/// Defines the internal buffer zone between a widget's boundary and its content.
+/// Defines the internal buffer zone between a widget's boundary and its
+/// content.
 ///
 /// Think of `Spacing` as a way to "shrink" the available room inside a box.
 /// It pushes the content away from the edges by a specific amount on
@@ -32,7 +33,8 @@ pub struct Spacing {
 impl TryFromValue for Spacing {}
 
 impl Spacing {
-    /// Creates a new `Spacing` where the same value is applied to all four sides.
+    /// Creates a new `Spacing` where the same value is applied to all four
+    /// sides.
     ///
     /// This is the quickest way to create a uniform buffer around your content
     /// when you don't need independent control over specific edges.

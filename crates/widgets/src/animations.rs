@@ -2,8 +2,11 @@ mod fade;
 mod pop;
 mod translate;
 
+pub use fade::Fade;
+pub use pop::Pop;
+pub use translate::Translate;
+
 use crate::types::{Extent, Offset};
-pub use {fade::Fade, pop::Pop, translate::Translate};
 
 pub(crate) trait AnimationFilter {
     fn filter(

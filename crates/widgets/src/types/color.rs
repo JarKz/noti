@@ -1,6 +1,5 @@
 use std::{
     f32::consts::{FRAC_PI_2, FRAC_PI_4, PI},
-    slice::ChunksExact,
     str::Chars,
 };
 
@@ -228,22 +227,26 @@ impl TryFrom<String> for Bgra<u8> {
                 alpha: 255,
             })
         } else {
-            let mut data = value.as_bytes()[1..].chunks_exact(2);
+            let (pairs, remainder) = value.as_bytes()[1..].as_chunks::<2>();
 
-            fn next_slice<'a>(data: &'a mut ChunksExact<u8>) -> Result<&'a str, anyhow::Error> {
-                data.next()
-                    .with_context(|| "Expected valid pair of HEX digits")
-                    .and_then(|slice| {
-                        std::str::from_utf8(slice).with_context(|| "Failed to parse color value")
-                    })
+            anyhow::ensure!(remainder.is_empty(), "Expected pairs of HEX digits");
+            anyhow::ensure!(
+                pairs.len() == 3 || pairs.len() == 4,
+                "Expected RGB or RGBA color value"
+            );
+
+            fn parse_pair(pair: &[u8; 2]) -> anyhow::Result<u8> {
+                let hex = std::str::from_utf8(pair).context("Failed to parse color value")?;
+
+                u8::from_str_radix(hex, BASE).context("Invalid HEX digits")
             }
 
             Ok(Bgra {
-                red: u8::from_str_radix(next_slice(&mut data)?, BASE)?,
-                green: u8::from_str_radix(next_slice(&mut data)?, BASE)?,
-                blue: u8::from_str_radix(next_slice(&mut data)?, BASE)?,
-                alpha: if value[1..].len() == 8 {
-                    u8::from_str_radix(next_slice(&mut data)?, BASE)?
+                red: parse_pair(&pairs[0])?,
+                green: parse_pair(&pairs[1])?,
+                blue: parse_pair(&pairs[2])?,
+                alpha: if pairs.len() == 4 {
+                    parse_pair(&pairs[3])?
                 } else {
                     255
                 },

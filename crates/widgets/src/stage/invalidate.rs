@@ -4,8 +4,8 @@ use crate::{
         StateLifetimeManagement,
     },
     types::{
-        dirty_flags::{propagate_needs_measure, DirtyFlags},
         WidgetId,
+        dirty_flags::{DirtyFlags, propagate_needs_measure},
     },
     widget::{WidgetInformation, WidgetInformationContext, WidgetSizingMode},
 };
@@ -39,13 +39,17 @@ pub trait Invalidate<C>: WidgetInformation + WidgetSizingMode<C>
 where
     C: InvalidateContext,
 {
-    /// When a widget reuses during a tree rebuild process, this method is called.
+    /// When a widget reuses during a tree rebuild process, this method is
+    /// called.
     ///
-    /// The implementation must check the difference from current and old information that cannot be
-    /// compared by [`crate::stage::rebuild::WidgetDiff`], also requiring additional actions.
+    /// The implementation must check the difference from current and old
+    /// information that cannot be compared by
+    /// [`crate::stage::rebuild::WidgetDiff`], also requiring additional
+    /// actions.
     ///
-    /// For instance, states cannot be easily checked by the trait above, because on change need to
-    /// decrement reference counter of the old state and increment reference counter of the new state.
+    /// For instance, states cannot be easily checked by the trait above,
+    /// because on change need to decrement reference counter of the old
+    /// state and increment reference counter of the new state.
     fn on_reuse(&mut self, old: &dyn std::any::Any, context: &mut C) -> DirtyFlags
     where
         C: StateLifetimeManagement;

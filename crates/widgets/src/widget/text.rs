@@ -7,23 +7,23 @@ use shared::{
 };
 
 use crate::{
-    context::{widget_data, widget_data_mut, ManageDirtyFlags, ManageIntrinsic, StateSubscription},
-    decorator::{content::Content, DecoratorExt, DrawDecorator, MeasureDecorator},
+    context::{ManageDirtyFlags, ManageIntrinsic, StateSubscription, widget_data, widget_data_mut},
+    decorator::{DecoratorExt, DrawDecorator, MeasureDecorator, content::Content},
     events::{EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult, PendingEvent},
     stage::{
         deinit::{Deinit, DeinitContext},
-        draw::{draw_debug_bounds, Drawer, UseColor},
+        draw::{Drawer, UseColor, draw_debug_bounds},
         invalidate::RebuildStatus,
         layout::{Layout, LayoutContext},
         measure::{self, Constraints, ManageMeasures, Measure, MeasureContext, SizingMode},
     },
     state::State,
     types::{
+        Color, DirtyFlags, Point,
         extent::Extent,
         identifiers::{WidgetId, WidgetKey},
         offset::Offset,
         spacing::Spacing,
-        Color, DirtyFlags, Point,
     },
     widget::{
         Draw, DrawContext, Init, InitContext, Invalidate, InvalidateContext, WidgetGetType,
@@ -68,7 +68,8 @@ pub struct Text {
     #[style]
     alignment: TextAlignment,
 
-    /// The extra vertical space added between lines, measured in the same units as font size.
+    /// The extra vertical space added between lines, measured in the same units
+    /// as font size.
     ///
     /// This value is used to calculate a height multiplier for the text layout.
     /// For example, if the font size is 16 and line_spacing is 4, the total
@@ -134,7 +135,8 @@ struct TextRuntimeInformation {
     total_lines: Option<usize>,
 }
 
-/// A collection of typographic settings that define the "look" and scale of a typeface.
+/// A collection of typographic settings that define the "look" and scale of a
+/// typeface.
 ///
 /// Instead of managing font names and sizes separately, this struct groups
 /// everything needed to tell the rendering engine exactly how to draw
@@ -246,9 +248,9 @@ impl TryFromValue for TextAlignment {
 }
 
 impl Text {
-    // INFO: better to pass it instead of `usize::MAX` because skia's textlayout module
-    // with ellipsis will make the layout in strange way — just truncate the first line
-    // with available space.
+    // INFO: better to pass it instead of `usize::MAX` because skia's textlayout
+    // module with ellipsis will make the layout in strange way — just
+    // truncate the first line with available space.
     const MAX_LINES: usize = 100_000;
 
     pub fn new() -> Self {
@@ -384,8 +386,9 @@ where
                 return measure::Intrinsic::default();
             };
 
-            /// The Paragraph from skia has some rounding error and because of this text wraps in not
-            /// desired manner. We should explicitly round and make the max intrinsic larger to avoid
+            /// The Paragraph from skia has some rounding error and because of
+            /// this text wraps in not desired manner. We should
+            /// explicitly round and make the max intrinsic larger to avoid
             /// this case.
             const EPSILON: f32 = 1.0;
             let min_width = paragraph.min_intrinsic_width();
@@ -461,9 +464,9 @@ where
                 .expect("An associated runtime information must exist for Text.");
 
         let TextRuntimeInformation {
-            ref mut paragraph,
-            ref value,
-            ref font_collection,
+            paragraph,
+            value,
+            font_collection,
             ..
         } = &mut *runtime_information;
 
@@ -553,9 +556,9 @@ impl Text {
 
     /// Builds a Skia `Paragraph` from the notification's text and entities.
     ///
-    /// This method assumes that all text entities are valid and non-overlapping.
-    /// If entities overlap or are malformed, the resulting paragraph may have
-    /// incorrect or conflicting styles.
+    /// This method assumes that all text entities are valid and
+    /// non-overlapping. If entities overlap or are malformed, the resulting
+    /// paragraph may have incorrect or conflicting styles.
     ///
     /// Intended for internal use during `compile`.
     fn build_paragraph(
@@ -672,10 +675,11 @@ where
     ) {
         Content::draw_fn(
             |offset: &Offset<f32>, provided_extent: Extent<f32>, drawer: &mut Drawer| {
-                // INFO: as you see, there's re-building paragraph. Since I want to use `Paint` type for
-                // coloring the text, it requires the exact position on surface, and because of this I
-                // cannot determine once the position. Especially when a banner moves from one place to
-                // another.
+                // INFO: as you see, there's re-building paragraph. Since I want
+                // to use `Paint` type for coloring the text, it
+                // requires the exact position on surface, and because of this I
+                // cannot determine once the position. Especially when a banner
+                // moves from one place to another.
 
                 let mut base_text_style = self.base_text_style();
 

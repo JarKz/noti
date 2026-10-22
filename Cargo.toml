@@ -2,7 +2,7 @@
 name = "noti"
 authors = [ "noti-rs" ]
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 # Focus on min size of bin
 [profile.release]
@@ -37,7 +37,7 @@ members = [
 [workspace.package]
 authors = [ "noti-rs" ]
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [workspace.dependencies]
 anyhow = "1.0.86"

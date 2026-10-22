@@ -3,7 +3,7 @@ use crate::{
         GenerateId, GetFont, GetState, ManageAnimationRegistry, ManageDirtyFlags, RegisterKey,
         StateLifetimeManagement, StateSubscription,
     },
-    types::{dirty_flags::propagate_needs_measure, identifiers::WidgetKey, WidgetId},
+    types::{WidgetId, dirty_flags::propagate_needs_measure, identifiers::WidgetKey},
     widget::{WidgetBase, WidgetInformationContext},
 };
 

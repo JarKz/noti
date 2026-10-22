@@ -13,7 +13,7 @@ impl Direction {
     #[allow(unused)]
     /// Returns the direction orthogonal to the current one.
     ///
-    /// * Horizontal → Vertical  
+    /// * Horizontal → Vertical
     /// * Vertical → Horizontal
     ///
     /// Useful when computing cross-axis alignment or spacing.

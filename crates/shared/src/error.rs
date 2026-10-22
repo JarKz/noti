@@ -1,7 +1,7 @@
 use crate::value::Value;
 
-/// Represents errors that can occur during conversion from a generic [`Value`] type
-/// into a concrete Rust type.
+/// Represents errors that can occur during conversion from a generic [`Value`]
+/// type into a concrete Rust type.
 ///
 /// This type is used throughout the runtime type system to handle failures when
 /// converting, downcasting, or interpreting a [`Value`]. Each variant provides

@@ -1,9 +1,5 @@
-use super::{banner_stack::BannerStack, CachedLayout};
-use crate::{
-    dispatcher::Dispatcher,
-    managers::window_manager::{audio_playback::AudioPlayback, banner_stack::Banner},
-    EglState,
-};
+use std::{collections::VecDeque, path::PathBuf};
+
 use config::{self, Config};
 use dbus::{actions::ClosingReason, notification::Notification};
 use log::{debug, error, trace};
@@ -12,12 +8,11 @@ use shared::{
     data::{Borrowed, Data},
 };
 use skia_safe::{
-    gpu::{gl::FramebufferInfo, DirectContext},
     Color,
+    gpu::{DirectContext, gl::FramebufferInfo},
 };
-use std::{collections::VecDeque, path::PathBuf};
 use wayland_client::{
-    delegate_noop,
+    Connection, Dispatch, EventQueue, Proxy, QueueHandle, WEnum, delegate_noop,
     protocol::{
         wl_buffer::WlBuffer,
         wl_callback::WlCallback,
@@ -29,7 +24,6 @@ use wayland_client::{
         wl_shm_pool::WlShmPool,
         wl_surface::WlSurface,
     },
-    Connection, Dispatch, EventQueue, Proxy, QueueHandle, WEnum,
 };
 use wayland_egl::WlEglSurface;
 use wayland_protocols::wp::{
@@ -46,13 +40,20 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
     zwlr_layer_surface_v1::{self, Anchor, ZwlrLayerSurfaceV1},
 };
 use widgets::{
+    WidgetSystem,
     context::{Context, DebugOptions, Tick, WidgetTreeCreation},
     events::{MouseButton, PointerShape, RawEvent, RawEventKind},
     make_widget,
     stage::{draw::Drawer, measure::Constraints},
-    types::{extent::Extent, offset::Offset, InputBehavior, Point, Spacing},
+    types::{InputBehavior, Point, Spacing, extent::Extent, offset::Offset},
     widget::FlexBox,
-    WidgetSystem,
+};
+
+use super::{CachedLayout, banner_stack::BannerStack};
+use crate::{
+    EglState,
+    dispatcher::Dispatcher,
+    managers::window_manager::{audio_playback::AudioPlayback, banner_stack::Banner},
 };
 
 /// Wraps a [WindowState] and holds an event queue used only for dispatching.
@@ -63,14 +64,16 @@ pub(super) struct Window {
     state: WindowState,
 }
 
-/// Represents the state of a `Window`, holding notifications, window properties, Wayland objects,
-/// shared rendering data, and a track of user actions.
+/// Represents the state of a `Window`, holding notifications, window
+/// properties, Wayland objects, shared rendering data, and a track of user
+/// actions.
 ///
-/// Instead of creating a separate Wayland window for each notification, all notifications are drawn
-/// as banners inside a single window. This approach avoids the complexity and instability of using
-/// multiple windows, especially since many Wayland protocols needed for that are still unstable or
-/// not well maintained. Managing everything in one window makes updates, user interactions, and
-/// redrawing much easier.
+/// Instead of creating a separate Wayland window for each notification, all
+/// notifications are drawn as banners inside a single window. This approach
+/// avoids the complexity and instability of using multiple windows, especially
+/// since many Wayland protocols needed for that are still unstable or
+/// not well maintained. Managing everything in one window makes updates, user
+/// interactions, and redrawing much easier.
 pub(super) struct WindowState {
     banner_stack: BannerStack<u32>,
     widget_system: WidgetSystem,
@@ -103,11 +106,13 @@ pub(super) struct WindowState {
     configuration_state: ConfigurationState,
 }
 
-/// Represents the configuration state of a `Window`, focusing on careful resource management.
+/// Represents the configuration state of a `Window`, focusing on careful
+/// resource management.
 ///
-/// A `Window` can request resources from the Wayland compositor, but they are not always granted
-/// immediately. Until the compositor provides them, further resource management would be invalid,
-/// so this state helps track and wait for permission before continuing.
+/// A `Window` can request resources from the Wayland compositor, but they are
+/// not always granted immediately. Until the compositor provides them, further
+/// resource management would be invalid, so this state helps track and wait for
+/// permission before continuing.
 pub(super) enum ConfigurationState {
     NotConfigured,
     Configured,
@@ -116,8 +121,9 @@ pub(super) enum ConfigurationState {
 impl Window {
     /// Initializes a `Window` with its event queue and state.
     ///
-    /// Initialization is eager, ensuring that all important data is loaded before it finishes.
-    /// Because of this, it may take a little more time to complete.
+    /// Initialization is eager, ensuring that all important data is loaded
+    /// before it finishes. Because of this, it may take a little more time
+    /// to complete.
     pub(super) fn init<P, Gpu>(
         wayland_connection: &Connection,
         protocols: &P,
@@ -135,10 +141,12 @@ impl Window {
         Gpu: AsRef<EglState> + AsRef<DirectContext>,
     {
         // Note for developers:
-        // To simplify `Window` initialization, the process is divided into three steps:
+        // To simplify `Window` initialization, the process is divided into
+        // three steps:
         // 1. Create a `wl_surface` and `zwlr_layer_surface_v1` from it.
         // 2. Request a `wl_pointer` with `wp_cursor_shape_device`.
-        // 3. Create a `wl_egl_surface` from the `wl_surface` and an EGL surface via the EGL instance.
+        // 3. Create a `wl_egl_surface` from the `wl_surface` and an EGL surface
+        //    via the EGL instance.
         //
         // Additional step:
         // - Ensure the surface has the correct size and position.
@@ -205,9 +213,11 @@ impl Window {
         Ok(Self { event_queue, state })
     }
 
-    /// Creates a `wl_surface` with the `zwlr_layer_surface_v1` role, applying minimal properties.
+    /// Creates a `wl_surface` with the `zwlr_layer_surface_v1` role, applying
+    /// minimal properties.
     ///
-    /// By default, the layer surface uses the `Overlay` layer and has no keyboard interactivity.
+    /// By default, the layer surface uses the `Overlay` layer and has no
+    /// keyboard interactivity.
     fn make_surface<P>(
         protocols: &P,
         qhandle: &QueueHandle<WindowState>,
@@ -230,8 +240,8 @@ impl Window {
         (surface, layer_surface)
     }
 
-    /// Requests a pointer from the Wayland compositor using `wp_cursor_shape_device_v1`
-    /// for the specified pointer.
+    /// Requests a pointer from the Wayland compositor using
+    /// `wp_cursor_shape_device_v1` for the specified pointer.
     fn make_pointer<P>(
         protocols: &P,
         qhandle: &QueueHandle<WindowState>,
@@ -248,8 +258,9 @@ impl Window {
         (pointer, cursor_device)
     }
 
-    /// Requests a pointer to a `wl_egl_surface` from the `wl_surface` and uses it to create a native EGL surface.
-    /// This is important for GPU-accelerated rendering.
+    /// Requests a pointer to a `wl_egl_surface` from the `wl_surface` and uses
+    /// it to create a native EGL surface. This is important for
+    /// GPU-accelerated rendering.
     fn make_egl_surface<Gpu>(
         surface: &WlSurface,
         gpu: &Gpu,
@@ -277,7 +288,8 @@ impl Window {
         Ok((egl_window, egl_surface))
     }
 
-    /// Returns `true` if a frame has already been requested from the compositor.
+    /// Returns `true` if a frame has already been requested from the
+    /// compositor.
     ///
     /// This flag is used to prevent duplicate frame requests while the previous
     /// frame callback has not yet been processed. Avoiding repeated requests
@@ -304,8 +316,8 @@ impl Window {
     }
 
     /// Requests a frame for the current `Window` from the Wayland compositor.
-    /// This allows the compositor to schedule the redraw at the correct time, ensuring smooth
-    /// rendering with VSync.
+    /// This allows the compositor to schedule the redraw at the correct time,
+    /// ensuring smooth rendering with VSync.
     pub(super) fn frame(&mut self) {
         if self.egl_surface.is_some() {
             self.state.surface.damage(0, 0, i32::MAX, i32::MAX);
@@ -315,7 +327,8 @@ impl Window {
         }
     }
 
-    /// Sends a `commit` message to the Wayland compositor to apply previously requested actions.
+    /// Sends a `commit` message to the Wayland compositor to apply previously
+    /// requested actions.
     pub(super) fn commit(&self, wp_presentation: &wp_presentation::WpPresentation) {
         self.state.surface.commit();
 
@@ -325,8 +338,8 @@ impl Window {
         debug!("Window: Commited")
     }
 
-    /// Synchronizes with the Wayland compositor, blocking the current thread until all requested
-    /// actions have been completed.
+    /// Synchronizes with the Wayland compositor, blocking the current thread
+    /// until all requested actions have been completed.
     ///
     /// This ensures that all pending requests are processed immediately.
     pub(super) fn sync(&mut self) -> anyhow::Result<()> {
@@ -336,7 +349,8 @@ impl Window {
 }
 
 impl WindowState {
-    /// Applies a new user configuration to an existing `Window` state, updating it with the new values.
+    /// Applies a new user configuration to an existing `Window` state, updating
+    /// it with the new values.
     pub(super) fn reconfigure(&mut self, config: Data<Config, Borrowed>) {
         self.widget_system.update_debug_options(DebugOptions {
             show_layout_bounds: config.general().debug.show_layout_bounds,
@@ -536,9 +550,11 @@ impl WindowState {
 
     fn resize(&mut self, logical_size: Extent<usize>) {
         if logical_size.width == 0 && logical_size.height == 0 {
-            // INFO: the Wayland compositor may call the callback after destroying a last
-            // notification and because of this the width and height of surface equals to 0x0. To
-            // avoid this need to set dummy size. It's always last frames before disappearing.
+            // INFO: the Wayland compositor may call the callback after
+            // destroying a last notification and because of this
+            // the width and height of surface equals to 0x0. To
+            // avoid this need to set dummy size. It's always last frames before
+            // disappearing.
             self.actual_size = Extent::new(1, 1);
         } else {
             self.actual_size = logical_size;
@@ -557,22 +573,24 @@ impl WindowState {
         );
     }
 
-    /// Sends requests to the Wayland compositor to destroy objects belonging to the current
-    /// `Window` state. The [Drop] trait cannot be used for this, because specific requests must
-    /// be sent to the Wayland compositor.
+    /// Sends requests to the Wayland compositor to destroy objects belonging to
+    /// the current `Window` state. The [Drop] trait cannot be used for
+    /// this, because specific requests must be sent to the Wayland
+    /// compositor.
     fn destroy(&self) {
         self.layer_surface.destroy();
         self.surface.destroy();
         self.cursor_device.destroy();
         self.pointer.release();
-        if let Some(egl_surface) = self.egl_surface {
-            if let Err(err) = self
+        if let Some(egl_surface) = self.egl_surface
+            && let Err(err) = self
                 .egl_state
                 .instance
                 .destroy_surface(self.egl_state.display, egl_surface)
-            {
-                error!("Failed to destroy EGL surface! Further application work won't guaranteed to be normal! Error: {err}.")
-            }
+        {
+            error!(
+                "Failed to destroy EGL surface! Further application work won't guaranteed to be normal! Error: {err}."
+            )
         }
     }
 }
@@ -611,11 +629,13 @@ impl Dispatcher for Window {
     }
 }
 
-// Represents gaps between window and screen boundaries to which the window is anchored.
+// Represents gaps between window and screen boundaries to which the window is
+// anchored.
 //
-// Actually it uses for differing the logical and actual window positions and sizes instead of
-// setting at Wayland level. Some animations may require appearing from edges of screen including
-// gaps, and because of this we here use specific margin.
+// Actually it uses for differing the logical and actual window positions and
+// sizes instead of setting at Wayland level. Some animations may require
+// appearing from edges of screen including gaps, and because of this we here
+// use specific margin.
 #[derive(Clone, Copy)]
 struct Margin {
     left: usize,
@@ -634,7 +654,8 @@ impl Margin {
         }
     }
 
-    /// Uses the specified anchor to determine the correct directions for the offsets.
+    /// Uses the specified anchor to determine the correct directions for the
+    /// offsets.
     fn with_anchor(x: usize, y: usize, anchor: &config::general::Anchor) -> Self {
         let mut margin = Margin::new();
 
@@ -868,7 +889,8 @@ impl Dispatch<ZwlrLayerSurfaceV1, ()> for WindowState {
 }
 
 /// Anchors from the [config] crate and the wlr-protocols use different types.
-/// This trait allows converting between them while preserving the underlying logic.
+/// This trait allows converting between them while preserving the underlying
+/// logic.
 trait ToLayerShellAnchor {
     fn to_layer_shell_anchor(&self) -> Anchor;
 }

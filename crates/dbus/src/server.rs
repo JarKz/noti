@@ -1,10 +1,3 @@
-use super::{
-    actions::{Action, ClosingReason, Signal},
-    notification::{Hints, Notification, NotificationAction, Timeout},
-};
-
-use shared::text::Text;
-
 use std::{
     collections::HashMap,
     sync::atomic::{AtomicU32, Ordering},
@@ -13,8 +6,14 @@ use std::{
 
 use async_channel::Sender;
 use log::debug;
+use shared::text::Text;
 use zbus::{
-    connection, fdo::Result, interface, object_server::SignalEmitter, zvariant::Value, Connection,
+    Connection, connection, fdo::Result, interface, object_server::SignalEmitter, zvariant::Value,
+};
+
+use super::{
+    actions::{Action, ClosingReason, Signal},
+    notification::{Hints, Notification, NotificationAction, Timeout},
 };
 
 static UNIQUE_ID: AtomicU32 = AtomicU32::new(1);

@@ -3,24 +3,24 @@ use macros::widget;
 use crate::{
     context::{LoadExtent, ManageIntrinsic},
     decorator::{
-        content::Content, DecoratorExt, DrawDecorator, EventHitTestDecorator, LayoutDecorator,
-        MeasureDecorator,
+        DecoratorExt, DrawDecorator, EventHitTestDecorator, LayoutDecorator, MeasureDecorator,
+        content::Content,
     },
     events::{EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult, PendingEvent},
     stage::{
         deinit::{Deinit, DeinitContext},
-        draw::{draw_debug_bounds, Draw, DrawContext, Drawer},
+        draw::{Draw, DrawContext, Drawer, draw_debug_bounds},
         init::{Init, InitContext},
         invalidate::{Invalidate, InvalidateContext, RebuildStatus},
         layout::{Layout, LayoutContext},
         measure::{self, Constraints, ManageMeasures, Measure, MeasureContext, SizingMode},
     },
     types::{
+        DirtyFlags, Point,
         extent::Extent,
         identifiers::{WidgetId, WidgetKey},
         offset::Offset,
         spacing::Spacing,
-        DirtyFlags, Point,
     },
     widget::{WidgetGetType, WidgetInformationContext, WidgetSizingMode},
 };
@@ -33,7 +33,8 @@ use crate::{
 /// The Box does three main things:
 /// * It sets a fixed width and height that never change.
 /// * It holds exactly one child widget inside itself.
-/// * It acts as a wall, so the child inside cannot push the box to make it bigger.
+/// * It acts as a wall, so the child inside cannot push the box to make it
+///   bigger.
 ///
 /// Use this when you need a UI element to stay exactly the same,
 /// like a fixed icon or a status light that should never grow or shrink.

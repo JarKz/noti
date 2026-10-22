@@ -49,9 +49,10 @@ pub(super) fn convert_into_widgets(mut _pairs: Pairs<Rule>) -> anyhow::Result<Wi
 //         let mut alias_definition_pairs = alias_definition.into_inner();
 //
 //         let _alias_keyword = alias_definition_pairs.next().unwrap();
-//         let alias_identifier = alias_definition_pairs.next().unwrap().as_str();
-//         let _eq_token = alias_definition_pairs.next().unwrap();
-//         let type_value_definition = alias_definition_pairs.next().unwrap();
+//         let alias_identifier =
+// alias_definition_pairs.next().unwrap().as_str();         let _eq_token =
+// alias_definition_pairs.next().unwrap();         let type_value_definition =
+// alias_definition_pairs.next().unwrap();
 //
 //         alias_storage.insert(
 //             alias_identifier,
@@ -75,7 +76,8 @@ pub(super) fn convert_into_widgets(mut _pairs: Pairs<Rule>) -> anyhow::Result<Wi
 //     let mut node_type_pairs = node_type.into_inner();
 //
 //     let widget_name = node_type_pairs.next().unwrap().as_str();
-//     let mut widget_gbuilder: GBuilder = (widget_name, alias_storage).try_into()?;
+//     let mut widget_gbuilder: GBuilder = (widget_name,
+// alias_storage).try_into()?;
 //
 //     let properties = convert_properties(&mut node_type_pairs, alias_storage);
 //
@@ -84,11 +86,12 @@ pub(super) fn convert_into_widgets(mut _pairs: Pairs<Rule>) -> anyhow::Result<Wi
 //
 //     if !children.is_empty() {
 //         let assignment_result =
-//             widget_gbuilder.set_value("children", Value::Any(Box::new(children)));
+//             widget_gbuilder.set_value("children",
+// Value::Any(Box::new(children)));
 //
-//         if let Err(ConversionError::UnknownField { field_name, .. }) = assignment_result {
-//             warn!("The {widget_name} doesn't contain the '{field_name}' field! Skipped.");
-//         }
+//         if let Err(ConversionError::UnknownField { field_name, .. }) =
+// assignment_result {             warn!("The {widget_name} doesn't contain the
+// '{field_name}' field! Skipped.");         }
 //     }
 //
 //     match widget_gbuilder.try_build()?.try_downcast() {
@@ -123,8 +126,8 @@ pub(super) fn convert_into_widgets(mut _pairs: Pairs<Rule>) -> anyhow::Result<Wi
 //     while let Some(property) = properties_pairs.next() {
 //         match convert_property(property, alias_storage) {
 //             Ok(property) => converted_properties.push(property),
-//             Err(err) => warn!("Failed to parse property and skipped. Error: {err}"),
-//         }
+//             Err(err) => warn!("Failed to parse property and skipped. Error:
+// {err}"),         }
 //         let _comma = properties_pairs.next();
 //     }
 //
@@ -144,7 +147,8 @@ pub(super) fn convert_into_widgets(mut _pairs: Pairs<Rule>) -> anyhow::Result<Wi
 //     let mut property_pairs = property.into_inner();
 //     let name = property_pairs.next().unwrap().as_str().to_string();
 //     let _eq_token = property_pairs.next();
-//     let value = convert_property_value(property_pairs.next().unwrap(), alias_storage)?;
+//     let value = convert_property_value(property_pairs.next().unwrap(),
+// alias_storage)?;
 //
 //     Ok(Property { name, value })
 // }
@@ -246,12 +250,12 @@ pub(super) fn convert_into_widgets(mut _pairs: Pairs<Rule>) -> anyhow::Result<Wi
 // }
 //
 // impl GBuilder {
-//     fn set_properties(&mut self, self_name: &str, properties: Vec<Property>) {
-//         for Property { name, value } in properties {
+//     fn set_properties(&mut self, self_name: &str, properties: Vec<Property>)
+// {         for Property { name, value } in properties {
 //             if let Err(err) = self.set_value(&name, value) {
 //                 warn!(
-//                     "Cannot set value for the '{name}' field in {self_name} due error and skipped. Error: {err}"
-//                 );
+//                     "Cannot set value for the '{name}' field in {self_name}
+// due error and skipped. Error: {err}"                 );
 //             }
 //         }
 //     }
@@ -270,14 +274,14 @@ pub(super) fn convert_into_widgets(mut _pairs: Pairs<Rule>) -> anyhow::Result<Wi
 //         }
 //
 //         if let Some(err) =
-//             implement_variants!(FlexContainer, WImage, WText, Spacing, Alignment, Border)
-//         {
-//             warn!("Failed to call constructor of {self_name}, trying to defaulting. Error: {err}");
-//         }
+//             implement_variants!(FlexContainer, WImage, WText, Spacing,
+// Alignment, Border)         {
+//             warn!("Failed to call constructor of {self_name}, trying to
+// defaulting. Error: {err}");         }
 //     }
 //
-//     fn set_value(&mut self, field_name: &str, value: Value) -> Result<&mut Self, ConversionError> {
-//         macro_rules! implement_variants {
+//     fn set_value(&mut self, field_name: &str, value: Value) -> Result<&mut
+// Self, ConversionError> {         macro_rules! implement_variants {
 //             ($($variant:ident),*) => {
 //                 match self {
 //                     $(
@@ -289,8 +293,8 @@ pub(super) fn convert_into_widgets(mut _pairs: Pairs<Rule>) -> anyhow::Result<Wi
 //             };
 //         }
 //
-//         implement_variants!(FlexContainer, WImage, WText, Spacing, Alignment, Border);
-//         Ok(self)
+//         implement_variants!(FlexContainer, WImage, WText, Spacing, Alignment,
+// Border);         Ok(self)
 //     }
 //
 //     fn try_build(self) -> anyhow::Result<Box<dyn std::any::Any>> {
@@ -298,10 +302,10 @@ pub(super) fn convert_into_widgets(mut _pairs: Pairs<Rule>) -> anyhow::Result<Wi
 //             ($($variant:ident into $dest_type:path),*) => {
 //                 match self {
 //                     $(
-//                         Self::$variant(val) => Box::new(Into::<$dest_type>::into(
-//                             val.try_build().map_err(|str| anyhow::format_err!("{str}"))?
-//                         )),
-//                     )*
+//                         Self::$variant(val) =>
+// Box::new(Into::<$dest_type>::into(
+// val.try_build().map_err(|str| anyhow::format_err!("{str}"))?
+// )),                     )*
 //                 }
 //             };
 //         }
@@ -325,15 +329,15 @@ pub(super) fn convert_into_widgets(mut _pairs: Pairs<Rule>) -> anyhow::Result<Wi
 //         (identifier, alias_storage): (&str, &HashMap<&str, GBuilder>),
 //     ) -> Result<Self, Self::Error> {
 //         Ok(match identifier {
-//             "FlexContainer" => GBuilder::FlexContainer(FlexContainerGBuilder::new()),
-//             "Image" => GBuilder::WImage(ImageGBuilder::new()),
-//             "Text" => GBuilder::WText(TextGBuilder::new()),
-//             "Spacing" => GBuilder::Spacing(SpacingGBuilder::new()),
-//             "Alignment" => GBuilder::Alignment(AlignmentGBuilder::new()),
-//             "Border" => GBuilder::Border(BorderGBuilder::new()),
-//             other => {
-//                 if let Some(aliased_gbuilder) = alias_storage.get(other).cloned() {
-//                     aliased_gbuilder
+//             "FlexContainer" =>
+// GBuilder::FlexContainer(FlexContainerGBuilder::new()),             "Image" =>
+// GBuilder::WImage(ImageGBuilder::new()),             "Text" =>
+// GBuilder::WText(TextGBuilder::new()),             "Spacing" =>
+// GBuilder::Spacing(SpacingGBuilder::new()),             "Alignment" =>
+// GBuilder::Alignment(AlignmentGBuilder::new()),             "Border" =>
+// GBuilder::Border(BorderGBuilder::new()),             other => {
+//                 if let Some(aliased_gbuilder) =
+// alias_storage.get(other).cloned() {                     aliased_gbuilder
 //                 } else {
 //                     bail!("Unknown type: {other}!")
 //                 }

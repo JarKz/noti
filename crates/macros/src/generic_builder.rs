@@ -1,13 +1,13 @@
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
-    parenthesized, parse::Parse, parse_macro_input, punctuated::Punctuated, spanned::Spanned, Token,
+    Token, parenthesized, parse::Parse, parse_macro_input, punctuated::Punctuated, spanned::Spanned,
 };
 
 use crate::{
     general::{
-        field_name, is_option, wrap_by_option, AttributeInfo, DefaultAssignment, DeriveInfo,
-        ExpectIdent, Structure,
+        AttributeInfo, DefaultAssignment, DeriveInfo, ExpectIdent, Structure, field_name,
+        is_option, wrap_by_option,
     },
     propagate_err,
 };
@@ -84,7 +84,9 @@ impl Structure {
                 if *r#type != field.ty.to_token_stream().to_string() {
                     return Err(syn::Error::new(
                         field.ty.span(),
-                        format!("Expected the same types of fields with same attribute value 'aliases' - {alias}!")
+                        format!(
+                            "Expected the same types of fields with same attribute value 'aliases' - {alias}!"
+                        ),
                     ));
                 }
             }
@@ -105,11 +107,11 @@ impl Structure {
         attribute_info: &AttributeInfo<StructInfo, FieldInfo>,
     ) {
         let Structure {
-            ref visibility,
-            ref struct_token,
-            ref name,
-            ref braces,
-            ref fields,
+            visibility,
+            struct_token,
+            name,
+            braces,
+            fields,
             ..
         } = self;
 

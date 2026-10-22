@@ -1,3 +1,5 @@
+use std::{any::Any, collections::HashMap, time::Duration};
+
 use indextree::NodeId;
 use log::warn;
 use shared::unique::Unique;
@@ -10,29 +12,29 @@ use crate::{
         layout::LayoutContext,
         measure::{Constraints, Intrinsic, MeasureContext},
         rebuild::{
-            keyed_diffing, positional_diffing, scan_forest, RebuildContext, RebuildOperation,
-            RebuildTree,
+            RebuildContext, RebuildOperation, RebuildTree, keyed_diffing, positional_diffing,
+            scan_forest,
         },
     },
     state::{MutableState, State, StateInfo},
     types::{
-        dirty_flags::{propagate_needs_measure, DirtyFlags},
-        identifiers::WidgetKey,
         Extent, Point, WidgetId,
+        dirty_flags::{DirtyFlags, propagate_needs_measure},
+        identifiers::WidgetKey,
     },
     widget::{Widget, WidgetInformationContext},
 };
-use std::{any::Any, collections::HashMap, time::Duration};
 
-/// A context for a widget tree that stores runtime data and other information associated with its
-/// widgets.
+/// A context for a widget tree that stores runtime data and other information
+/// associated with its widgets.
 ///
-/// It is essential to a widget tree because widgets are blueprints, while their runtime data is
-/// stored in the context. The context can operate on widgets without depending on their structure
-/// and provides the information required to perform runtime operations.
+/// It is essential to a widget tree because widgets are blueprints, while their
+/// runtime data is stored in the context. The context can operate on widgets
+/// without depending on their structure and provides the information required
+/// to perform runtime operations.
 ///
-/// The implementation of [Context] is hidden from users but available to developers.
-/// See the internal documentation for more details.
+/// The implementation of [Context] is hidden from users but available to
+/// developers. See the internal documentation for more details.
 pub struct Context {
     debug_options: DebugOptions,
 
@@ -48,7 +50,8 @@ pub struct Context {
     /// Registry of arbitrary data associated with particular widgets.
     widget_data_registry: HashMap<WidgetId, Box<dyn Any>>,
 
-    /// Registry of measurement caches for avoiding unnecessary widget re-measurement.
+    /// Registry of measurement caches for avoiding unnecessary widget
+    /// re-measurement.
     measure_cache: HashMap<WidgetId, MeasureCache>,
 
     /// Registry of mutable and immutable states bound to their descriptors.
@@ -150,11 +153,13 @@ impl Context {
             }
         }
 
-        // INFO: it's a special case when re-measuring from root might not affect some branches of
-        // widget tree, because constraints are not changed for them. Then we need to check manually
+        // INFO: it's a special case when re-measuring from root might not
+        // affect some branches of widget tree, because constraints are
+        // not changed for them. Then we need to check manually
         // and re-measure.
         //
-        // Also it applies if re-measurement starts not from a root, but from some fixed-sized parents.
+        // Also it applies if re-measurement starts not from a root, but from
+        // some fixed-sized parents.
         let unmeasured_parent_widgets = self
             .dirty_registry
             .iter()
@@ -196,8 +201,8 @@ impl Context {
                 .copied()
                 .unwrap_or(DirtyFlags::empty());
 
-            // INFO: during re-layouting one widget it may affect other, so here need ot check to
-            // avoid unnecessary re-layouts.
+            // INFO: during re-layouting one widget it may affect other, so here
+            // need ot check to avoid unnecessary re-layouts.
             if !dirty_flags.contains(DirtyFlags::NEEDS_LAYOUT) {
                 continue;
             }
@@ -243,7 +248,8 @@ impl Context {
     }
 }
 
-/// A collection of options that made for debuggin an UI or internal work detail.
+/// A collection of options that made for debuggin an UI or internal work
+/// detail.
 #[derive(Clone, Debug)]
 pub struct DebugOptions {
     /// Shows the layout bounds of each UI element using different colors.
@@ -276,31 +282,33 @@ struct MeasureCache {
     /// The actual exetnt of a widget under a speficif constraints.
     extent: Option<Extent<f32>>,
 
-    /// The constraints that used to a particular widget. It uses for re-measuring to check whether
-    /// constraints were changed or not.
+    /// The constraints that used to a particular widget. It uses for
+    /// re-measuring to check whether constraints were changed or not.
     ///
-    /// The rule is simple: if constraints were changed then do re-measurement, otherwise use the
-    /// cached extent.
+    /// The rule is simple: if constraints were changed then do re-measurement,
+    /// otherwise use the cached extent.
     constraints: Option<Constraints<Extent<f32>>>,
 }
 
 /// The information about animation for a widget.
 ///
-/// The animation progress is detached from widget, but provides information to it. It allows tick a
-/// progress independently and tell the [Context] whether to call a widget to rebuild or not.
+/// The animation progress is detached from widget, but provides information to
+/// it. It allows tick a progress independently and tell the [Context] whether
+/// to call a widget to rebuild or not.
 #[derive(Debug, Clone)]
 pub struct AnimationProgress {
     /// The time was passed since start in nanoseconds.
     ///
-    /// Actual start might be at zero or at maximum duration depending on an animation direction. If
-    /// it passing forward then it will start at zero, otherwise at maximum duration but moves
-    /// toward to zero.
+    /// Actual start might be at zero or at maximum duration depending on an
+    /// animation direction. If it passing forward then it will start at
+    /// zero, otherwise at maximum duration but moves toward to zero.
     elapsed_ns: u128,
 
     /// The maximum duration of an animation.
     duration: Duration,
 
-    /// The dirty flags to pass a widget to trigger some actions from the [Context].
+    /// The dirty flags to pass a widget to trigger some actions from the
+    /// [Context].
     flag_on_change: DirtyFlags,
 
     /// The animation direction telling to increase or decrease the passed time.
@@ -487,33 +495,44 @@ fn perform_operation_set(context: &mut Context, rebuild_context: &RebuildContext
                 old_node_id,
                 new_node_id,
             } => {
-                // SAFETY: this code cannot be expressed using ordinary Rust references because
-                // `on_reuse` requires simultaneous access to the new widget, the old widget,
-                // and the Context containing both of them. The borrow checker correctly
-                // rejects such code in general, so the aliasing created here must be justified
+                // SAFETY: this code cannot be expressed using ordinary Rust
+                // references because `on_reuse` requires
+                // simultaneous access to the new widget, the old widget,
+                // and the Context containing both of them. The borrow checker
+                // correctly rejects such code in general, so
+                // the aliasing created here must be justified
                 // by the specific semantics of this operation.
                 //
-                // The `on_reuse` method is intentionally restricted to reconciling the runtime
-                // state of the new widget with the old widget. In particular, while the
-                // `on_reuse` call is active, it must not use `Context` to access or invalidate
-                // either the old or the new node. This includes deleting, replacing, moving,
-                // or otherwise invalidating either node, or creating another mutable access
-                // to either node through `Context`.
+                // The `on_reuse` method is intentionally restricted to
+                // reconciling the runtime state of the new
+                // widget with the old widget. In particular, while the
+                // `on_reuse` call is active, it must not use `Context` to
+                // access or invalidate either the old or the
+                // new node. This includes deleting, replacing, moving,
+                // or otherwise invalidating either node, or creating another
+                // mutable access to either node through
+                // `Context`.
                 //
-                // The references represented by `Unique<Context>`, `Unique<dyn Widget<Context>>`,
-                // and `&dyn Widget<Context>` must remain valid for the entire duration of the
-                // `on_reuse` call. After the call returns, these temporary aliases are no
-                // longer used and the normal `Context` reference is used again.
+                // The references represented by `Unique<Context>`, `Unique<dyn
+                // Widget<Context>>`, and `&dyn Widget<Context>`
+                // must remain valid for the entire duration of the
+                // `on_reuse` call. After the call returns, these temporary
+                // aliases are no longer used and the normal
+                // `Context` reference is used again.
                 //
-                // SOUNDNESS: Rust's borrow checker guarantees that a value is accessed through
-                // either one mutable reference or multiple immutable references at a time.
-                // Because `Context` owns the widget forest and provides access to its nodes,
-                // obtaining a mutable reference to the new node while also passing a mutable
-                // reference to `Context` is normally prohibited. `Unique` is used here to
-                // express an aliasing pattern that cannot be represented by the borrow checker.
+                // SOUNDNESS: Rust's borrow checker guarantees that a value is
+                // accessed through either one mutable reference
+                // or multiple immutable references at a time.
+                // Because `Context` owns the widget forest and provides access
+                // to its nodes, obtaining a mutable reference
+                // to the new node while also passing a mutable
+                // reference to `Context` is normally prohibited. `Unique` is
+                // used here to express an aliasing pattern that
+                // cannot be represented by the borrow checker.
                 //
-                // This code is sound as long as the semantic requirements above are upheld:
-                // the old and new nodes remain valid and are not accessed through conflicting
+                // This code is sound as long as the semantic requirements above
+                // are upheld: the old and new nodes remain
+                // valid and are not accessed through conflicting
                 // aliases during the `on_reuse` call.
 
                 let mut new_node_mut = unsafe {
@@ -553,10 +572,11 @@ fn perform_operation_set(context: &mut Context, rebuild_context: &RebuildContext
 
 /// Retrieves a reference to a widget data that bound to its id.
 ///
-/// Instead of trying to write the whole turbofish generics better to use output matching:
-///```rs
-///let some_data: &WidgetData = widget_data(context, &self.id).except("There's must be a widget data.")
-///```
+/// Instead of trying to write the whole turbofish generics better to use output
+/// matching:
+/// ```rs
+/// let some_data: &WidgetData = widget_data(context, &self.id).except("There's must be a widget data.")
+/// ```
 pub fn widget_data<T: 'static, C, Id>(context: &C, widget_id: Id) -> Option<&T>
 where
     C: ManageWidgetData<Id>,
@@ -569,10 +589,11 @@ where
 
 /// Retrieves an unique access to a widget data that bound to its id.
 ///
-/// Instead of trying to write the whole turbofish generics better to use output matching:
-///```rs
-///let some_data: Unique<WidgetData> = widget_data_mut(context, &self.id).except("There's must be a widget data.")
-///```
+/// Instead of trying to write the whole turbofish generics better to use output
+/// matching:
+/// ```rs
+/// let some_data: Unique<WidgetData> = widget_data_mut(context, &self.id).except("There's must be a widget data.")
+/// ```
 pub fn widget_data_mut<T: 'static, C, Id>(context: &mut C, widget_id: Id) -> Option<Unique<T>>
 where
     C: ManageWidgetData<Id>,
@@ -653,8 +674,8 @@ pub trait StateLifetimeManagement {
         S: Into<State<T>>,
         T: 'static;
 
-    /// Decreases the strong reference counter in internal system, can be followed with freeing an
-    /// underlying data of a provided state.
+    /// Decreases the strong reference counter in internal system, can be
+    /// followed with freeing an underlying data of a provided state.
     fn release<T, S>(&mut self, state: S)
     where
         S: Into<State<T>>,
@@ -688,8 +709,8 @@ impl StateLifetimeManagement for Context {
             state_info.decrease_ref_count();
 
             if state_info.strong_references() == 0 {
-                // INFO: we don't tell any child widgets about removing a state, since they
-                // explicitly retain and release.
+                // INFO: we don't tell any child widgets about removing a state,
+                // since they explicitly retain and release.
                 self.state_registry.remove(&state.descriptor);
             }
         } else {
@@ -701,10 +722,12 @@ impl StateLifetimeManagement for Context {
     }
 }
 
-/// The scoped context that solves the [Context] issues with traits that cannot be dyn-compatible.
+/// The scoped context that solves the [Context] issues with traits that cannot
+/// be dyn-compatible.
 ///
-/// It aims to scope users callbacks, in which enough to manage states. And with it the [Context]
-/// can be reduced to it's capabilities of [GetState] and [SetState] by using dyn-compatible [ScopedManageState].
+/// It aims to scope users callbacks, in which enough to manage states. And with
+/// it the [Context] can be reduced to it's capabilities of [GetState] and
+/// [SetState] by using dyn-compatible [ScopedManageState].
 pub struct ScopedContext<'a> {
     inner: &'a mut dyn ScopedManageState,
 }
@@ -723,18 +746,19 @@ pub trait ScopedManageState {
 
 impl ScopedManageState for Context {
     fn set_raw(&mut self, descriptor: usize, val: Box<dyn Any>) {
-        if let Some(state_info) = self.state_registry.get_mut(&descriptor) {
-            if state_info.set_raw_data(val) {
-                // TODO: check the validity of exising widget
-                // For instance, in subscriber list may be some unexisting widget and marking dirty
-                // flags will be invalid
-                state_info.subscribers().for_each(|subscriber| {
-                    self.dirty_registry
-                        .entry(*subscriber)
-                        .and_modify(|flags| *flags |= DirtyFlags::NEEDS_REBUILD)
-                        .or_insert(DirtyFlags::NEEDS_REBUILD);
-                });
-            }
+        if let Some(state_info) = self.state_registry.get_mut(&descriptor)
+            && state_info.set_raw_data(val)
+        {
+            // TODO: check the validity of exising widget
+            // For instance, in subscriber list may be some unexisting
+            // widget and marking dirty flags will be
+            // invalid
+            state_info.subscribers().for_each(|subscriber| {
+                self.dirty_registry
+                    .entry(*subscriber)
+                    .and_modify(|flags| *flags |= DirtyFlags::NEEDS_REBUILD)
+                    .or_insert(DirtyFlags::NEEDS_REBUILD);
+            });
         }
     }
 
@@ -770,20 +794,21 @@ impl GetState for Context {
 
 impl SetState for Context {
     fn set<T: 'static>(&mut self, mutable_state: MutableState<T>, value: T) {
-        if let Some(state_info) = self.state_registry.get_mut(&mutable_state.descriptor) {
-            if let Some(data) = state_info.get_data_mut(mutable_state) {
-                *data = value;
+        if let Some(state_info) = self.state_registry.get_mut(&mutable_state.descriptor)
+            && let Some(data) = state_info.get_data_mut(mutable_state)
+        {
+            *data = value;
 
-                // TODO: check the validity of exising widget
-                // For instance, in subscriber list may be some unexisting widget and marking dirty
-                // flags will be invalid
-                state_info.subscribers().for_each(|subscriber| {
-                    self.dirty_registry
-                        .entry(*subscriber)
-                        .and_modify(|flags| *flags |= DirtyFlags::NEEDS_REBUILD)
-                        .or_insert(DirtyFlags::NEEDS_REBUILD);
-                });
-            }
+            // TODO: check the validity of exising widget
+            // For instance, in subscriber list may be some unexisting
+            // widget and marking dirty flags will be
+            // invalid
+            state_info.subscribers().for_each(|subscriber| {
+                self.dirty_registry
+                    .entry(*subscriber)
+                    .and_modify(|flags| *flags |= DirtyFlags::NEEDS_REBUILD)
+                    .or_insert(DirtyFlags::NEEDS_REBUILD);
+            });
         }
     }
 }

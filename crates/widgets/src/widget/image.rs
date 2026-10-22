@@ -12,13 +12,13 @@ use shared::{
 
 use crate::{
     context::{
-        widget_data, widget_data_mut, ManageIntrinsic, StateLifetimeManagement, StateSubscription,
+        ManageIntrinsic, StateLifetimeManagement, StateSubscription, widget_data, widget_data_mut,
     },
-    decorator::{content::Content, DecoratorExt, DrawDecorator, MeasureDecorator},
+    decorator::{DecoratorExt, DrawDecorator, MeasureDecorator, content::Content},
     events::{EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult, PendingEvent},
     stage::{
         deinit::{Deinit, DeinitContext},
-        draw::{draw_debug_bounds, Draw, DrawContext, Drawer},
+        draw::{Draw, DrawContext, Drawer, draw_debug_bounds},
         init::{Init, InitContext},
         invalidate::{Invalidate, InvalidateContext, RebuildStatus},
         layout::{Layout, LayoutContext},
@@ -26,11 +26,11 @@ use crate::{
     },
     state::State,
     types::{
+        Border, DirtyFlags, Point,
         extent::Extent,
         identifiers::{WidgetId, WidgetKey},
         offset::Offset,
         spacing::Spacing,
-        Border, DirtyFlags, Point,
     },
     widget::{WidgetGetType, WidgetInformationContext, WidgetSizingMode},
 };
@@ -50,8 +50,10 @@ const DEFAULT_ICON_THEME: &str = "hicolor";
 ///
 /// This widget's main jobs are:
 /// - Choosing the right way to load the picture you provided.
-/// - Getting the picture ready to be drawn (like unpacking it and making it the right size).
-/// - Telling the rest of the layout how much space it needs so everything stays organized.
+/// - Getting the picture ready to be drawn (like unpacking it and making it the
+///   right size).
+/// - Telling the rest of the layout how much space it needs so everything stays
+///   organized.
 #[widget]
 #[derive(bon::Builder, Default)]
 pub struct Image {
@@ -500,11 +502,21 @@ impl ImageData {
         };
 
         let mut rgba_image = vec![255; origin_width as usize * origin_height as usize * 4];
-        for (i, chunk) in rgb_image.chunks_exact(3).enumerate() {
-            let offset = i * 4;
-            rgba_image[offset] = chunk[0];
-            rgba_image[offset + 1] = chunk[1];
-            rgba_image[offset + 2] = chunk[2];
+
+        let (rgb_chunks, rgb_remainder) = rgb_image.as_chunks::<3>();
+        if !rgb_remainder.is_empty() {
+            warn!(
+                "Got image with a wrong rowstride. With RGB format there's more bytes at the end."
+            )
+        }
+
+        let (rgba_chunks, rgba_remainder) = rgba_image.as_chunks_mut::<4>();
+        if !rgba_remainder.is_empty() {
+            warn!("A destination image built wrongly, there are additional bytes at the end.")
+        }
+
+        for (rgb, rgba) in rgb_chunks.iter().zip(rgba_chunks) {
+            rgba[0..3].copy_from_slice(rgb);
         }
 
         let mut file = tempfile::tempfile().expect("The temp file must be created");
@@ -697,8 +709,9 @@ pub struct ImageInfo {
 
     /// File descriptor containing the image data in RGB byte order.
     ///
-    /// To avoid storing large data in RAM, the image is stored in a temporary file.
-    /// The file is automatically removed when no handles reference it.
+    /// To avoid storing large data in RAM, the image is stored in a temporary
+    /// file. The file is automatically removed when no handles reference
+    /// it.
     pub image_file_descriptor: FileDescriptor,
 }
 

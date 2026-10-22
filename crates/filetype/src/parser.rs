@@ -1,11 +1,12 @@
-use pest::{iterators::Pairs, Parser};
+use pest::{Parser, iterators::Pairs};
 use pest_derive::Parser;
 
 #[derive(Parser)]
 #[grammar = "layout.pest"]
 pub(super) struct LayoutParser;
 
-//TODO: currently the parser is imcompatible with new widgets and it must be fixed.
+//TODO: currently the parser is imcompatible with new widgets and it must be
+// fixed.
 pub(super) fn parse(input: &str) -> anyhow::Result<Pairs<'_, Rule>> {
     Ok(LayoutParser::parse(Rule::Layout, input)?)
 }

@@ -1,6 +1,8 @@
-//! The module that contain the structure `GeneralConfig` which stores general config properties.
+//! The module that contain the structure `GeneralConfig` which stores general
+//! config properties.
 //!
-//! With it the module also stores `TomlGeneralConfig` which can parse data from TOML data.
+//! With it the module also stores `TomlGeneralConfig` which can parse data from
+//! TOML data.
 
 use macros::ConfigProperty;
 use serde::Deserialize;

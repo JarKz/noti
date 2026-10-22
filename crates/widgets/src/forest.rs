@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
 use indextree::Arena;
-use shared::unique::Unique;
-
 pub use indextree::NodeId;
+use shared::unique::Unique;
 
 /// A contract requires to retrieve some `T` from a type.
 pub trait Get<T> {
@@ -11,7 +10,8 @@ pub trait Get<T> {
     fn get(&self) -> T;
 }
 
-/// A contract requires to retrieve some `T` from a type if exists, otherwise none.
+/// A contract requires to retrieve some `T` from a type if exists, otherwise
+/// none.
 pub trait GetCarefully<T> {
     /// Retrieves a `Option<&T>` value from a type.
     fn get_carefully(&self) -> Option<&T>;
@@ -19,12 +19,13 @@ pub trait GetCarefully<T> {
 
 /// A forest of geeneric trees of nodes stored in an arena.
 ///
-/// It allows fast use, retrieve, change and delete nodes within the same forest, managing complex
-/// things internally and provides convenient API externally.
+/// It allows fast use, retrieve, change and delete nodes within the same
+/// forest, managing complex things internally and provides convenient API
+/// externally.
 ///
-/// The important note that you must know is that a forest have a single main root, and each
-/// operation where root doesn't mention implies main root. Otherwise explicitly mention an other
-/// root.
+/// The important note that you must know is that a forest have a single main
+/// root, and each operation where root doesn't mention implies main root.
+/// Otherwise explicitly mention an other root.
 pub(crate) struct Forest<Id, Node>
 where
     Id: std::hash::Hash + Eq,
@@ -69,7 +70,8 @@ where
     }
 
     pub(crate) fn append_node(&mut self, parent: NodeId, child: NodeId) {
-        // TODO: get cardinality of current node to check whether is possible to add child or not
+        // TODO: get cardinality of current node to check whether is possible to
+        // add child or not
         parent.append(child, &mut self.arena);
     }
 
@@ -100,9 +102,10 @@ where
 
     /// Promotes a pending tree root to main tree root.
     ///
-    /// NOTE: this operation entirely destroys a main tree immediately, if pending tree root exists.
-    /// So, be sure that all required operations are performed (about initialization,
-    /// deinitialization and transferring responsibility to new nodes) before calling this method.
+    /// NOTE: this operation entirely destroys a main tree immediately, if
+    /// pending tree root exists. So, be sure that all required operations
+    /// are performed (about initialization, deinitialization and
+    /// transferring responsibility to new nodes) before calling this method.
     pub(crate) fn promote_pending_tree_root(&mut self) {
         if let Some(root) = self.pending_root {
             if let Some(main_root) = self.main_root {
@@ -183,8 +186,8 @@ where
 
 /// The double-sided relation between two types.
 ///
-/// A left type takes priority over a right type. And this type assumes that a left and a right
-/// types are unique, so it effectively clears old relations.
+/// A left type takes priority over a right type. And this type assumes that a
+/// left and a right types are unique, so it effectively clears old relations.
 struct Relations<Left, Right>
 where
     Left: std::hash::Hash + Eq,

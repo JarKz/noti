@@ -1,10 +1,10 @@
 use derive_more::derive::Display;
 
+use super::notification::Notification;
 use crate::notification::ScheduledNotification;
 
-use super::notification::Notification;
-
-/// Represents an action to perform on notifications, following the freedesktop notification specification.
+/// Represents an action to perform on notifications, following the freedesktop
+/// notification specification.
 pub enum Action {
     /// Shows a new notification by sending it to the notification server.
     Show(Box<Notification>),
@@ -21,9 +21,11 @@ pub enum Action {
     CloseAll,
 }
 
-/// Represents a D-Bus signal sent from the notification server back to the client.
+/// Represents a D-Bus signal sent from the notification server back to the
+/// client.
 ///
-/// These signals are used to inform the application about user interactions or notification state changes.
+/// These signals are used to inform the application about user interactions or
+/// notification state changes.
 #[derive(Display)]
 #[display("{_variant}")]
 pub enum Signal {
@@ -53,7 +55,8 @@ pub enum Signal {
     },
 }
 
-/// Represents the reason why a notification was closed, as defined by the freedesktop specification.
+/// Represents the reason why a notification was closed, as defined by the
+/// freedesktop specification.
 #[derive(Display, Clone)]
 pub enum ClosingReason {
     /// The notification expired (timeout reached).

@@ -7,8 +7,8 @@ use shared::{
 };
 use widgets::widget::WidgetEnum;
 
-/// Represents a custom widget layout loaded into memory. This wrapper allows detecting
-/// changes to the layout file and reloading it on demand.
+/// Represents a custom widget layout loaded into memory. This wrapper allows
+/// detecting changes to the layout file and reloading it on demand.
 pub(super) struct CachedLayout {
     watcher: FilesWatcher,
     layout: Option<WidgetEnum>,
@@ -17,8 +17,8 @@ pub(super) struct CachedLayout {
 impl CachedLayout {
     /// Returns a custom widget layout if it has been successfully loaded.
     ///
-    /// The layout may not exist if the file path is invalid, the file is missing, or any other
-    /// error occurs while loading.
+    /// The layout may not exist if the file path is invalid, the file is
+    /// missing, or any other error occurs while loading.
     #[allow(unused)]
     pub(super) fn layout(&self) -> Option<&WidgetEnum> {
         self.layout.as_ref()

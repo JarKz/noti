@@ -30,8 +30,8 @@ where
         current_id = parent_node_id;
 
         let mut parent_dirty_flags = context.get_dirty_flags(current_id);
-        // INFO: If an ancestor already has NEEDS_MEASURE, propagating this invalidation farther
-        // upward is unnecessary.
+        // INFO: If an ancestor already has NEEDS_MEASURE, propagating this
+        // invalidation farther upward is unnecessary.
         if parent_dirty_flags.contains(DirtyFlags::NEEDS_MEASURE) {
             break;
         }

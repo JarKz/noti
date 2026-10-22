@@ -28,38 +28,46 @@ pub fn generic_builder(item: TokenStream) -> TokenStream {
 
 /// Marks a struct as a widget component.
 ///
-/// *REQUIRES* the `bon` crate, because it heavily depends on the `#[derive(bon::Builder)]` macro!
+/// *REQUIRES* the `bon` crate, because it heavily depends on the
+/// `#[derive(bon::Builder)]` macro!
 ///
-/// This macro reduces a lot of boilerplate code, allowing you to declare a clean and readable struct,
-/// and converts it into a functional component for the widget system.
+/// This macro reduces a lot of boilerplate code, allowing you to declare a
+/// clean and readable struct, and converts it into a functional component for
+/// the widget system.
 ///
-/// There are three kinds of widgets: *minimal*, *standard*, and *container*. Each of them introduces
-/// additional struct fields and methods to help with measurement and drawing.
+/// There are three kinds of widgets: *minimal*, *standard*, and *container*.
+/// Each of them introduces additional struct fields and methods to help with
+/// measurement and drawing.
 ///
-/// * `minimal` — adds only three fields: `id`, `key`, and `class`. Automatically implements
-///   the `WidgetInformation` trait.
+/// * `minimal` — adds only three fields: `id`, `key`, and `class`.
+///   Automatically implements the `WidgetInformation` trait.
 ///
-/// * `standard` (default) — adds fields from the `minimal` kind + the `margin` field. Automatically implements
-///   the `WidgetInformation` trait and generates the `self.outer_spacing()` method.
+/// * `standard` (default) — adds fields from the `minimal` kind + the `margin`
+///   field. Automatically implements the `WidgetInformation` trait and
+///   generates the `self.outer_spacing()` method.
 ///
-/// * `container` — adds fields from the `standard` kind + `padding`, `border`, `background_color`, and
-///   `alignment` properties. Automatically implements the `WidgetInformation` trait and generates
-///   three methods: `self.inner_spacing()`, `self.outer_spacing()`, and `self.total_spacing()`.
+/// * `container` — adds fields from the `standard` kind + `padding`, `border`,
+///   `background_color`, and `alignment` properties. Automatically implements
+///   the `WidgetInformation` trait and generates three methods:
+///   `self.inner_spacing()`, `self.outer_spacing()`, and
+///   `self.total_spacing()`.
 ///
-/// To pick the correct kind for a widget, decide how the concrete widget should behave:
+/// To pick the correct kind for a widget, decide how the concrete widget should
+/// behave:
 ///
-/// 1. If it just adds a property or changes something but does nothing in measurement, then it's a
-///    *minimal* widget.
+/// 1. If it just adds a property or changes something but does nothing in
+///    measurement, then it's a *minimal* widget.
 ///
-/// 2. If the widget is a leaf in the widget tree that draws related content, then it's *standard*.
+/// 2. If the widget is a leaf in the widget tree that draws related content,
+///    then it's *standard*.
 ///
-/// 3. If the widget groups child widgets or places them according to specific rules, then it's a
-///    *container*.
+/// 3. If the widget groups child widgets or places them according to specific
+///    rules, then it's a *container*.
 ///
 /// Syntax: `#[widget(kind = standard)]`.
 ///
-/// Some fields of a widget can be styles that change its look. In the standard way, you would
-/// declare them like this:
+/// Some fields of a widget can be styles that change its look. In the standard
+/// way, you would declare them like this:
 ///
 /// ```rs
 /// #[builder(with = |v: u16| StyleProperty::Explicit(v), default)]
@@ -73,17 +81,20 @@ pub fn generic_builder(item: TokenStream) -> TokenStream {
 /// font_size: u16,
 /// ```
 ///
-/// The macro converts this into the boilerplate code shown above. You can verify this by hovering
-/// over a field to check its actual type. This allows you to focus on the actual types without
-/// cluttering the code with property wrappers.
+/// The macro converts this into the boilerplate code shown above. You can
+/// verify this by hovering over a field to check its actual type. This allows
+/// you to focus on the actual types without cluttering the code with property
+/// wrappers.
 ///
-/// NOTE: Style fields are optional for the builder by default due to the `default` key in `#[builder]`
-/// attributes. If you want to require the user to provide a field, add the `required` key: `#[style(required)]`.
+/// NOTE: Style fields are optional for the builder by default due to the
+/// `default` key in `#[builder]` attributes. If you want to require the user to
+/// provide a field, add the `required` key: `#[style(required)]`.
 /// This will remove the `default` key.
 ///
-/// Also, you may want to generate a separate style structure that copies all style fields, which is
-/// reasonable if this style struct is related only to this specific widget. For this case, use
-/// `#[make_widget_style(StructName, derive(bon::Builder))]`:
+/// Also, you may want to generate a separate style structure that copies all
+/// style fields, which is reasonable if this style struct is related only to
+/// this specific widget. For this case, use `#[make_widget_style(StructName,
+/// derive(bon::Builder))]`:
 ///
 /// ```rs
 /// #[widget]
@@ -94,8 +105,9 @@ pub fn generic_builder(item: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// Since the default widget kind is `standard`, it automatically adds the `margin` field (which is a style field).
-/// As a result, the generated code will look like this:
+/// Since the default widget kind is `standard`, it automatically adds the
+/// `margin` field (which is a style field). As a result, the generated code
+/// will look like this:
 ///
 /// ```rs
 /// #[derive(bon::Builder)]
@@ -115,11 +127,12 @@ pub fn generic_builder(item: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// In case of using a single style for more than one widget, explicitly declare the style struct with
-/// `#[widget_style]`. See more in [widget_style].
+/// In case of using a single style for more than one widget, explicitly declare
+/// the style struct with `#[widget_style]`. See more in [widget_style].
 ///
-/// Any widget can have callbacks. To add a callback, use the `#[callback(name: T -> R)]` attribute.
-/// It offers a highly flexible declaration syntax. See the examples below:
+/// Any widget can have callbacks. To add a callback, use the `#[callback(name:
+/// T -> R)]` attribute. It offers a highly flexible declaration syntax. See the
+/// examples below:
 ///
 /// ```rs
 /// #[widget]

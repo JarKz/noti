@@ -31,17 +31,15 @@ pub mod shader_builder;
 pub mod spacing;
 pub mod style;
 
-pub use {
-    alignment::{Alignment, Position},
-    border::Border,
-    color::{Bgra, Color, LinearGradient},
-    direction::Direction,
-    dirty_flags::DirtyFlags,
-    extent::Extent,
-    identifiers::{WidgetId, WidgetKey},
-    input_behavior::InputBehavior,
-    offset::Offset,
-    point::Point,
-    shader_builder::{ShaderBuilder, ShaderBuilderError, UniformValue},
-    spacing::Spacing,
-};
+pub use alignment::{Alignment, Position};
+pub use border::Border;
+pub use color::{Bgra, Color, LinearGradient};
+pub use direction::Direction;
+pub use dirty_flags::DirtyFlags;
+pub use extent::Extent;
+pub use identifiers::{WidgetId, WidgetKey};
+pub use input_behavior::InputBehavior;
+pub use offset::Offset;
+pub use point::Point;
+pub use shader_builder::{ShaderBuilder, ShaderBuilderError, UniformValue};
+pub use spacing::Spacing;

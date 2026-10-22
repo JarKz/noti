@@ -1,14 +1,14 @@
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
-    parenthesized, parse::Parse, parse_macro_input, punctuated::Punctuated, spanned::Spanned, Token,
+    Token, parenthesized, parse::Parse, parse_macro_input, punctuated::Punctuated, spanned::Spanned,
 };
 
 use crate::{
     general::{
-        field_name, wrap_by_option, AttributeInfo, DefaultAssignment, DeriveInfo, ExpectIdent,
-        Structure,
+        AttributeInfo, DefaultAssignment, DeriveInfo, ExpectIdent, Structure, field_name,
+        wrap_by_option,
     },
     propagate_err,
 };
@@ -58,9 +58,9 @@ impl Structure {
                 return Err(syn::Error::new(
                     field.ty.span(),
                     format!(
-                        "Expected the same types of fields with same attribute value 'also_from' - {}!", 
+                        "Expected the same types of fields with same attribute value 'also_from' - {}!",
                         also_from_field.ident
-                    )
+                    ),
                 ));
             }
         }

@@ -1,6 +1,9 @@
+use macros::widget;
+
 use crate::{
+    WidgetId,
     context::ScopedContext,
-    decorator::{content::Content, DecoratorExt, EventHitTestDecorator},
+    decorator::{DecoratorExt, EventHitTestDecorator, content::Content},
     events::{EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult},
     stage::{
         deinit::{Deinit, DeinitContext},
@@ -12,9 +15,7 @@ use crate::{
     },
     types::{DirtyFlags, Extent, Point},
     widget::{WidgetGetType, WidgetInformationContext, WidgetKey, WidgetSizingMode},
-    WidgetId,
 };
-use macros::widget;
 
 #[widget(kind = minimal)]
 #[callback(on_click)]

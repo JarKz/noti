@@ -196,6 +196,18 @@
             packages = {
               default = buildNotiApplication rustToolchain;
               nightly = buildNotiApplication rustNightlyToolchain;
+
+              fmt = pkgs.writeShellApplication {
+                name = "fmt";
+
+                runtimeInputs = [
+                  rustNightlyToolchain
+                ];
+
+                text = ''
+                  exec cargo fmt --all "$@"
+                '';
+              };
             };
 
             checks = {
@@ -217,8 +229,8 @@
                 }
               );
 
-              noti-fmt = (craneLib rustToolchain).cargoFmt {
-                src = appSrc rustToolchain;
+              noti-fmt = (craneLib rustNightlyToolchain).cargoFmt {
+                src = appSrc rustNightlyToolchain;
               };
             };
           }

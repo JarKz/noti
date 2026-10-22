@@ -2,7 +2,7 @@ use log::warn;
 
 use crate::{
     context::{AnimationQuery, GetDebugOptions, LoadExtent},
-    types::{extent::Extent, offset::Offset, Bgra, Color, WidgetId},
+    types::{Bgra, Color, WidgetId, extent::Extent, offset::Offset},
     widget::{WidgetBase, WidgetInformationContext},
 };
 
@@ -122,9 +122,11 @@ impl UseColor for skia_safe::Paint {
 
                 let (half_width, half_height) = (extent.width / 2.0, extent.height / 2.0);
 
-                // INFO: need to find a factor to multiply the x/y offsets to that distance where
-                // prependicular line hits top left and top right corners. Without it part of area
-                // will be filled by single non-gradientary color that is not acceptable.
+                // INFO: need to find a factor to multiply the x/y offsets to
+                // that distance where prependicular line hits
+                // top left and top right corners. Without it part of area
+                // will be filled by single non-gradientary color that is not
+                // acceptable.
                 let x_offset = linear_gradient.grad_vector[0] * half_width;
                 let y_offset = linear_gradient.grad_vector[1] * half_height;
                 let norm = (x_offset * x_offset + y_offset * y_offset).sqrt();

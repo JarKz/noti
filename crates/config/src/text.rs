@@ -1,7 +1,7 @@
 use macros::ConfigProperty;
 use serde::Deserialize;
 
-use super::{public, Spacing};
+use super::{Spacing, public};
 
 public! {
     #[derive(ConfigProperty, Debug, Clone)]

@@ -1,13 +1,14 @@
-use display::{DisplayConfig, TomlDisplayConfig};
-use general::{GeneralConfig, TomlGeneralConfig};
-use log::{debug, error, warn};
-use serde::Deserialize;
-use shared::file_watcher::{FileState, FilesWatcher};
 use std::{
     collections::HashMap,
     ops::Not,
     path::{Path, PathBuf},
 };
+
+use display::{DisplayConfig, TomlDisplayConfig};
+use general::{GeneralConfig, TomlGeneralConfig};
+use log::{debug, error, warn};
+use serde::Deserialize;
+use shared::file_watcher::{FileState, FilesWatcher};
 use theme::{Theme, TomlTheme};
 
 pub mod color;

@@ -8,15 +8,18 @@ use crate::types::WidgetId;
 
 /// States are handles to underlying data managed by an internal system.
 ///
-/// They are lightweight and cannot be meaningful without the internal system. By an internal system,
-/// we mean an arbitrary system that manages different data. In the widget system, the internal
-/// system is the [crate::context::Context].
+/// They are lightweight and cannot be meaningful without the internal system.
+/// By an internal system, we mean an arbitrary system that manages different
+/// data. In the widget system, the internal system is the
+/// [crate::context::Context].
 ///
-/// Since states are lightweight handles, an internal system cannot know where they are copied or
-/// dropped. Therefore, the internal system relies on explicit state management by explicitly
-/// increasing or decreasing the reference counter.
+/// Since states are lightweight handles, an internal system cannot know where
+/// they are copied or dropped. Therefore, the internal system relies on
+/// explicit state management by explicitly increasing or decreasing the
+/// reference counter.
 ///
-/// If a state handle is not explicitly freed, it may cause a memory leak due to incorrect usage.
+/// If a state handle is not explicitly freed, it may cause a memory leak due to
+/// incorrect usage.
 pub struct State<T: 'static> {
     pub(crate) descriptor: usize,
     pub(crate) _marker: PhantomData<T>,
@@ -45,18 +48,20 @@ impl<T: 'static> PartialEq for State<T> {
     }
 }
 
-/// A mutable subset of [`State<T>`] that allows the underlying data to be modified.
+/// A mutable subset of [`State<T>`] that allows the underlying data to be
+/// modified.
 ///
-/// Like [`State<T>`], mutable states are lightweight handles to data managed by an internal system
-/// and cannot be meaningful without it. In the widget system, the internal system is the
-/// [crate::context::Context].
+/// Like [`State<T>`], mutable states are lightweight handles to data managed by
+/// an internal system and cannot be meaningful without it. In the widget
+/// system, the internal system is the [crate::context::Context].
 ///
-/// Since mutable states are lightweight handles, an internal system cannot know where they are
-/// copied or dropped. Therefore, the internal system relies on explicit state management by
-/// explicitly increasing or decreasing the reference counter.
+/// Since mutable states are lightweight handles, an internal system cannot know
+/// where they are copied or dropped. Therefore, the internal system relies on
+/// explicit state management by explicitly increasing or decreasing the
+/// reference counter.
 ///
-/// If a mutable state handle is not explicitly freed, it may cause a memory leak due to incorrect
-/// usage.
+/// If a mutable state handle is not explicitly freed, it may cause a memory
+/// leak due to incorrect usage.
 pub struct MutableState<T: 'static> {
     pub(crate) descriptor: usize,
     pub(crate) _marker: PhantomData<T>,

@@ -1,3 +1,5 @@
+use std::{rc::Rc, time::Duration};
+
 use anyhow::bail;
 use async_channel::unbounded;
 use config::Config;
@@ -15,13 +17,11 @@ use shared::{
     data::{Borrowed, Data},
     file_watcher::FileState,
 };
-use std::{rc::Rc, time::Duration};
 use wayland_client::{
-    delegate_noop,
+    Connection, Dispatch, delegate_noop,
     protocol::{
         wl_compositor::WlCompositor, wl_registry::WlRegistry, wl_seat::WlSeat, wl_shm::WlShm,
     },
-    Connection, Dispatch,
 };
 use wayland_protocols::{
     ext::idle_notify::v1::client::ext_idle_notifier_v1::ExtIdleNotifierV1,
@@ -102,7 +102,9 @@ pub fn run(config: Config) -> anyhow::Result<()> {
                 partially_default_config = true;
                 config.update();
                 backend.update_config(config.borrow()).handle_error()?;
-                info!("The main or imported configuration file is not found, reverting this part to default values.");
+                info!(
+                    "The main or imported configuration file is not found, reverting this part to default values."
+                );
             }
             FileState::NotFound | FileState::NothingChanged => (),
         };
@@ -120,11 +122,12 @@ pub fn run(config: Config) -> anyhow::Result<()> {
             async_io::block_on(server.emit_signal(signal))?;
         }
 
-        // SAFETY: malloc_trim is very safe syscalls and fails only if there is not libc library
-        // and can be turned off with remove feature.
+        // SAFETY: malloc_trim is very safe syscalls and fails only if there is
+        // not libc library and can be turned off with remove feature.
         //
-        // The main purpose of this allocator is return all memory to OS becasue the application
-        // mostly in idle state and it doesn't need any memory at most of time.
+        // The main purpose of this allocator is return all memory to OS becasue
+        // the application mostly in idle state and it doesn't need any
+        // memory at most of time.
         #[cfg(feature = "libc_alloc")]
         unsafe {
             libc::malloc_trim(0);
@@ -169,8 +172,8 @@ fn debug_signal(signal: &Signal) {
     }
 }
 
-/// Represents the main state of the `Noti` backend. It stores key objects related to drawing and
-/// presentation.
+/// Represents the main state of the `Noti` backend. It stores key objects
+/// related to drawing and presentation.
 pub(crate) struct Backend {
     wayland_connection: Connection,
     protocols: Protocols,
@@ -179,8 +182,8 @@ pub(crate) struct Backend {
     gpu_interface: GpuInterface,
 }
 
-/// Represents the list of bound Wayland protocols, usable for a wide range of tasks—from window
-/// creation to managing complex states.
+/// Represents the list of bound Wayland protocols, usable for a wide range of
+/// tasks—from window creation to managing complex states.
 #[derive(derive_builder::Builder)]
 struct Protocols {
     wl_compositor: WlCompositor,
@@ -203,10 +206,12 @@ pub type EglDisplay = khronos_egl::Display;
 pub type EglConfig = khronos_egl::Config;
 pub type EglContext = khronos_egl::Context;
 
-/// Represents the state for managing an EGL instance, including display, configuration, and context.
+/// Represents the state for managing an EGL instance, including display,
+/// configuration, and context.
 ///
-/// EGL provides a bridge between OpenGL (or OpenGL ES) and the native windowing system. In Wayland,
-/// EGL allows rendering directly to GPU buffers, enabling hardware-accelerated drawing.
+/// EGL provides a bridge between OpenGL (or OpenGL ES) and the native windowing
+/// system. In Wayland, EGL allows rendering directly to GPU buffers, enabling
+/// hardware-accelerated drawing.
 #[derive(Clone)]
 struct EglState {
     instance: Rc<EglInstance>,
@@ -221,22 +226,25 @@ impl AsRef<EglState> for EglState {
     }
 }
 
-/// This application uses Skia as the primary module for drawing complex UI. To enable immediate
-/// surface creation, the `GrContext` must be persisted for the lifetime of the application.
+/// This application uses Skia as the primary module for drawing complex UI. To
+/// enable immediate surface creation, the `GrContext` must be persisted for the
+/// lifetime of the application.
 struct SkiaBackend {
-    /// It's important to have DirectContext because it relies to current available surface.
-    /// Without it the DirectContext won't be created and usable.
+    /// It's important to have DirectContext because it relies to current
+    /// available surface. Without it the DirectContext won't be created and
+    /// usable.
     no_surface: NoSurface,
     gr_context: skia_safe::gpu::DirectContext,
 }
 
-/// Wrapper for `NO_SURFACE` from EGL. This wrapper can be set as the current surface to indicate
-/// to the GPU that no surface is active, effectively performing no rendering. It helps ensure
-/// correct EGL surface management.
+/// Wrapper for `NO_SURFACE` from EGL. This wrapper can be set as the current
+/// surface to indicate to the GPU that no surface is active, effectively
+/// performing no rendering. It helps ensure correct EGL surface management.
 struct NoSurface(pub khronos_egl::Surface);
 
 impl Backend {
-    /// Initializes the backend by connecting to Wayland, setting up EGL, and creating a Skia context.
+    /// Initializes the backend by connecting to Wayland, setting up EGL, and
+    /// creating a Skia context.
     pub(crate) fn init(config: &Config) -> anyhow::Result<Self> {
         let (wayland_connection, protocols) = Self::connect_to_wayland()?;
         let egl_state = Self::init_egl(&wayland_connection)?;
@@ -254,11 +262,12 @@ impl Backend {
         })
     }
 
-    /// Connects to Wayland and binds the required protocols. To prevent application deadlock during
-    /// connection, a timeout is used.
+    /// Connects to Wayland and binds the required protocols. To prevent
+    /// application deadlock during connection, a timeout is used.
     ///
-    /// This method requires the presence of specific protocols; otherwise, the application will
-    /// refuse to start, as it would not know how to interact with Wayland compositor.
+    /// This method requires the presence of specific protocols; otherwise, the
+    /// application will refuse to start, as it would not know how to
+    /// interact with Wayland compositor.
     ///
     /// The required protocols are listed in the [Protocols] struct.
     fn connect_to_wayland() -> anyhow::Result<(Connection, Protocols)> {
@@ -286,10 +295,12 @@ impl Backend {
         Ok((wayland_connection, protocols))
     }
 
-    /// Initializes the EGL context and creates the required components for the application to work.
+    /// Initializes the EGL context and creates the required components for the
+    /// application to work.
     ///
-    /// This method assumes the application will operate in an RGBA8 color space and that Wayland
-    /// provides a way to obtain a `WlEglSurface`, from which an EGL surface will be created.
+    /// This method assumes the application will operate in an RGBA8 color space
+    /// and that Wayland provides a way to obtain a `WlEglSurface`, from
+    /// which an EGL surface will be created.
     fn init_egl(wayland_connection: &Connection) -> anyhow::Result<EglState> {
         let egl_instance = khronos_egl::Instance::new(khronos_egl::Static);
         let egl_display = unsafe {
@@ -342,7 +353,8 @@ impl Backend {
         })
     }
 
-    /// Creates a Skia context from the initialized [EglState], which is used to create Skia surfaces.
+    /// Creates a Skia context from the initialized [EglState], which is used to
+    /// create Skia surfaces.
     fn init_skia_backend(egl_state: &EglState) -> anyhow::Result<SkiaBackend> {
         let no_surface = unsafe { khronos_egl::Surface::from_ptr(khronos_egl::NO_SURFACE) };
 
@@ -379,8 +391,8 @@ impl Backend {
 
     /// Processes and dispatches a single iteration of backend events.
     ///
-    /// Unlike a continuous `run` loop, this method performs only one cycle and must be called
-    /// repeatedly, typically inside an application loop.
+    /// Unlike a continuous `run` loop, this method performs only one cycle and
+    /// must be called repeatedly, typically inside an application loop.
     ///
     /// It handles only events related to the backend.
     pub(crate) fn poll(&mut self, config: Data<Config, Borrowed>) -> Result<(), Error> {
@@ -418,7 +430,8 @@ impl Backend {
         Ok(())
     }
 
-    /// Takes a D-Bus signal from the backend that needs to be sent to the application.
+    /// Takes a D-Bus signal from the backend that needs to be sent to the
+    /// application.
     pub(crate) fn pop_signal(&mut self) -> Option<Signal> {
         self.window_manager.pop_signal()
     }

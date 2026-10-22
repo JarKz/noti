@@ -4,13 +4,14 @@ use log::error;
 
 use crate::file_watcher::FileState;
 
-/// A helper struct for managing cached data with automatic updates and modifications.
+/// A helper struct for managing cached data with automatic updates and
+/// modifications.
 ///
-/// `CachedData` provides a convenient API for storing and accessing key-value data,
-/// while handling changes and extensions efficiently.
+/// `CachedData` provides a convenient API for storing and accessing key-value
+/// data, while handling changes and extensions efficiently.
 ///
-/// The caller only needs to implement a [CacheUpdate] to notify about external changes,
-/// allowing `CachedData` to keep the cache up-to-date automatically.
+/// The caller only needs to implement a [CacheUpdate] to notify about external
+/// changes, allowing `CachedData` to keep the cache up-to-date automatically.
 ///
 /// This abstraction simplifies cache management and ensures consistency without
 /// exposing the underlying storage details.
@@ -99,12 +100,13 @@ where
 /// whether the underlying data has changed, allowing the cache to be updated
 /// accordingly.
 ///
-/// While `CacheUpdate` itself is generic, it often interacts with [`crate::file_watcher::FilesWatcher`]
-/// indirectly: one of its methods returns a [`FileState`], which relies on `FileWatcher`
-/// to detect changes in files and update the cache accordingly.
+/// While `CacheUpdate` itself is generic, it often interacts with
+/// [`crate::file_watcher::FilesWatcher`] indirectly: one of its methods returns
+/// a [`FileState`], which relies on `FileWatcher` to detect changes in files
+/// and update the cache accordingly.
 ///
-/// Implementing this trait allows `CachedData` to stay synchronized with external
-/// data sources automatically.
+/// Implementing this trait allows `CachedData` to stay synchronized with
+/// external data sources automatically.
 pub trait CacheUpdate {
     fn check_updates(&mut self) -> FileState;
     fn update(&mut self);

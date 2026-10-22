@@ -36,7 +36,8 @@ pub enum Position {
     /// Aligns children at the end of the axis.
     End,
 
-    /// Distributes children evenly, adding spacing between them to fill available space.
+    /// Distributes children evenly, adding spacing between them to fill
+    /// available space.
     SpaceBetween,
 }
 

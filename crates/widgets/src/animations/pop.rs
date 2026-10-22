@@ -1,8 +1,11 @@
-use skia_safe::runtime_effect::ChildPtr;
 use std::collections::HashMap;
 
-use crate::animations::AnimationFilter;
-use crate::types::{ShaderBuilder, UniformValue};
+use skia_safe::runtime_effect::ChildPtr;
+
+use crate::{
+    animations::AnimationFilter,
+    types::{ShaderBuilder, UniformValue},
+};
 
 /// A pop animation effect for widgets.
 ///

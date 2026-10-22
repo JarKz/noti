@@ -1,13 +1,16 @@
-use super::image::ImageData;
+use std::{cmp::Ordering, collections::HashMap};
+
 use derive_more::Display;
 use shared::text::Text;
-use std::{cmp::Ordering, collections::HashMap};
 use zbus::zvariant::Value;
+
+use super::image::ImageData;
 
 /// Represents a notification sent through D-Bus.
 #[derive(Debug)]
 pub struct Notification {
-    /// Unique identifier for the notification, assigned by the D-Bus notification server.
+    /// Unique identifier for the notification, assigned by the D-Bus
+    /// notification server.
     pub id: u32,
 
     /// Name of the application sending the notification.
@@ -25,16 +28,19 @@ pub struct Notification {
     /// Time (in milliseconds) after which the notification expires.
     pub expire_timeout: Timeout,
 
-    /// Optional hints that provide additional information for the notification (e.g., urgency, category, image data).
+    /// Optional hints that provide additional information for the notification
+    /// (e.g., urgency, category, image data).
     pub hints: Hints,
 
-    /// List of actions associated with the notification (buttons or commands the user can trigger).
+    /// List of actions associated with the notification (buttons or commands
+    /// the user can trigger).
     pub actions: Vec<NotificationAction>,
 
     /// Indicates whether the notification has been marked as read.
     pub is_read: bool,
 
-    /// Timestamp (Unix epoch in milliseconds) when the notification was created.
+    /// Timestamp (Unix epoch in milliseconds) when the notification was
+    /// created.
     pub created_at: u64,
 }
 
@@ -72,10 +78,11 @@ pub struct Hints {
     /// The type of notification this is.
     pub category: Category,
 
-    /// This specifies the name of the desktop filename representing the calling program.
-    /// This should be the same as the prefix used for the application's .desktop file.
-    /// An example would be "rhythmbox" from "rhythmbox.desktop".
-    /// This can be used by the daemon to retrieve the correct icon for the application, for logging purposes, etc.
+    /// This specifies the name of the desktop filename representing the calling
+    /// program. This should be the same as the prefix used for the
+    /// application's .desktop file. An example would be "rhythmbox" from
+    /// "rhythmbox.desktop". This can be used by the daemon to retrieve the
+    /// correct icon for the application, for logging purposes, etc.
     pub desktop_entry: Option<String>,
 
     /// Raw data image format.
@@ -84,31 +91,39 @@ pub struct Hints {
     /// Alternative way to define the notification image
     pub image_path: Option<String>,
 
-    /// When set the server will not automatically remove the notification when an action has been invoked.
-    /// The notification will remain resident in the server until it is explicitly removed by the user or by the sender.
-    /// This hint is likely only useful when the server has the "persistence" capability.
+    /// When set the server will not automatically remove the notification when
+    /// an action has been invoked. The notification will remain resident in
+    /// the server until it is explicitly removed by the user or by the sender.
+    /// This hint is likely only useful when the server has the "persistence"
+    /// capability.
     pub resident: Option<bool>,
 
     /// The path to a sound file to play when the notification pops up.
     pub sound_file: Option<String>,
 
-    /// A themeable named sound from the freedesktop.org sound naming specification to play when the notification pops up.
-    /// Similar to icon-name, only for sounds. An example would be "message-new-instant".
+    /// A themeable named sound from the freedesktop.org sound naming
+    /// specification to play when the notification pops up. Similar to
+    /// icon-name, only for sounds. An example would be "message-new-instant".
     pub sound_name: Option<String>,
 
-    /// Causes the server to suppress playing any sounds, if it has that ability.
-    /// This is usually set when the client itself is going to play its own sound.
+    /// Causes the server to suppress playing any sounds, if it has that
+    /// ability. This is usually set when the client itself is going to play
+    /// its own sound.
     pub suppress_sound: Option<bool>,
 
-    /// When set the server will treat the notification as transient and by-pass the server's persistence capability, if it should exist.
+    /// When set the server will treat the notification as transient and by-pass
+    /// the server's persistence capability, if it should exist.
     pub transient: Option<bool>,
 
-    /// Specifies the X and Y location on the screen that the notification should point to.
+    /// Specifies the X and Y location on the screen that the notification
+    /// should point to.
     pub coordinates: Option<Coordinates>,
 
-    /// When set, a server that has the "action-icons" capability will attempt to interpret any action identifier as a named icon.
-    /// The localized display name will be used to annotate the icon for accessibility purposes.
-    /// The icon name should be compliant with the Freedesktop.org Icon Naming Specification.
+    /// When set, a server that has the "action-icons" capability will attempt
+    /// to interpret any action identifier as a named icon. The localized
+    /// display name will be used to annotate the icon for accessibility
+    /// purposes. The icon name should be compliant with the Freedesktop.org
+    /// Icon Naming Specification.
     pub action_icons: Option<bool>,
 
     /// Specifies the time to schedule the notification to be shown.
@@ -171,11 +186,13 @@ impl From<HashMap<&str, Value<'_>>> for Hints {
 }
 
 #[derive(Debug)]
-/// Represents a single action attached to a notification, following the freedesktop specification.
+/// Represents a single action attached to a notification, following the
+/// freedesktop specification.
 pub struct NotificationAction {
     /// A unique key that identifies the action.
     ///
-    /// This key is sent back to the notification server when the user activates the action.
+    /// This key is sent back to the notification server when the user activates
+    /// the action.
     #[allow(unused)]
     action_key: String,
 
@@ -221,13 +238,15 @@ impl Coordinates {
     }
 }
 
-/// Represents the category of a notification, following the freedesktop notification specification.
+/// Represents the category of a notification, following the freedesktop
+/// notification specification.
 ///
-/// Categories help classify notifications so that the server or compositor can handle
-/// them appropriately (e.g., show with different priority or style).
+/// Categories help classify notifications so that the server or compositor can
+/// handle them appropriately (e.g., show with different priority or style).
 #[derive(Debug, Clone, Default)]
 pub enum Category {
-    /// Notifications related to device events (e.g., battery low, hardware change).
+    /// Notifications related to device events (e.g., battery low, hardware
+    /// change).
     Device(CategoryEvent),
 
     /// Notifications related to email events (e.g., new mail).
@@ -239,7 +258,8 @@ pub enum Category {
     /// Notifications about network events (e.g., connectivity changes).
     Network(CategoryEvent),
 
-    /// Notifications indicating user presence changes (e.g., online/offline status).
+    /// Notifications indicating user presence changes (e.g., online/offline
+    /// status).
     Presence(CategoryEvent),
 
     /// Notifications about file or data transfer events.
@@ -284,10 +304,12 @@ impl From<&str> for Category {
     }
 }
 
-/// Represents a specific event within a notification category, following the freedesktop specification.
+/// Represents a specific event within a notification category, following the
+/// freedesktop specification.
 ///
 /// These events allow for more fine-grained classification of notifications,
-/// helping the server decide how to present them (e.g., different urgency or icon).
+/// helping the server decide how to present them (e.g., different urgency or
+/// icon).
 #[derive(Debug, Clone)]
 pub enum CategoryEvent {
     /// A generic event that does not fit into any of the more specific types.
@@ -305,7 +327,8 @@ pub enum CategoryEvent {
     /// Indicates a bounce event (e.g., message failed to send).
     Bounced,
 
-    /// Indicates that something has been received (e.g., file transfer completed).
+    /// Indicates that something has been received (e.g., file transfer
+    /// completed).
     Received,
 
     /// Indicates an error occurred.
@@ -327,20 +350,23 @@ pub enum CategoryEvent {
     Complete,
 }
 
-/// Represents the timeout of a notification, following the freedesktop notification specification.
+/// Represents the timeout of a notification, following the freedesktop
+/// notification specification.
 ///
 /// This value determines how long the notification should be displayed.
 #[derive(Default, Debug, Clone, Display)]
 pub enum Timeout {
     /// A custom timeout in milliseconds.
     ///
-    /// The notification server will attempt to close the notification after the specified time.
-    /// The server may ignore this value if it enforces its own policy.
+    /// The notification server will attempt to close the notification after the
+    /// specified time. The server may ignore this value if it enforces its
+    /// own policy.
     Millis(u32),
 
     /// Indicates that the notification should never automatically expire.
     ///
-    /// The notification will remain visible until the user dismisses it or the application withdraws it.
+    /// The notification will remain visible until the user dismisses it or the
+    /// application withdraws it.
     Never,
 
     /// Uses the notification server's default timeout behavior.
@@ -361,13 +387,15 @@ impl From<i32> for Timeout {
     }
 }
 
-/// Represents the urgency level of a notification, following the freedesktop notification specification.
+/// Represents the urgency level of a notification, following the freedesktop
+/// notification specification.
 ///
-/// Urgency levels are used by the notification server to determine how the notification
-/// should be presented (e.g., style, priority, or persistence).
+/// Urgency levels are used by the notification server to determine how the
+/// notification should be presented (e.g., style, priority, or persistence).
 #[derive(Debug, Clone, Copy, Default, Display, PartialEq, Eq)]
 pub enum Urgency {
-    /// Low urgency — the notification is not time-sensitive and may be shown less prominently.
+    /// Low urgency — the notification is not time-sensitive and may be shown
+    /// less prominently.
     Low,
 
     /// Normal urgency — the default level for most notifications.
@@ -376,8 +404,8 @@ pub enum Urgency {
 
     /// Critical urgency — indicates the notification is very important.
     ///
-    /// Such notifications may remain on screen until the user explicitly dismisses them,
-    /// depending on the server's implementation.
+    /// Such notifications may remain on screen until the user explicitly
+    /// dismisses them, depending on the server's implementation.
     Critical,
 }
 

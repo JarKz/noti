@@ -1,8 +1,7 @@
 use std::{cmp::Ordering, collections::HashMap, marker::PhantomData};
 
-use serde::{de::Visitor, Deserialize};
-
 use dbus::notification::Notification;
+use serde::{Deserialize, de::Visitor};
 
 #[derive(Debug, Default, Clone)]
 pub struct Sorting {

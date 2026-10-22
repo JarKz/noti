@@ -25,7 +25,8 @@ impl ShaderBuilder {
         self.uniforms.insert(name.to_string(), value);
     }
 
-    // TODO: implement ShaderBuilderError to have expressive error and handle them
+    // TODO: implement ShaderBuilderError to have expressive error and handle
+    // them
     pub fn make_shader<U: Into<Option<HashMap<String, UniformValue>>>>(
         &self,
         children: &[ChildPtr],

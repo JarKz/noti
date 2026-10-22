@@ -1,13 +1,15 @@
-use crate::dispatcher::Dispatcher;
 use config::Config;
 use idle_notifier::{IdleNotifier, IdleState};
 use log::debug;
-use wayland_client::{protocol::wl_seat::WlSeat, Connection, EventQueue};
+use wayland_client::{Connection, EventQueue, protocol::wl_seat::WlSeat};
 use wayland_protocols::ext::idle_notify::v1::client::ext_idle_notifier_v1::ExtIdleNotifierV1;
+
+use crate::dispatcher::Dispatcher;
 
 mod idle_notifier;
 
-/// Handles idle state events from the Wayland compositor to pause or resume the application.
+/// Handles idle state events from the Wayland compositor to pause or resume the
+/// application.
 ///
 /// This is useful to avoid wasting resources when the user is inactive.
 pub struct IdleManager {
@@ -58,8 +60,9 @@ impl IdleManager {
 
     /// Refreshes the idle state, allowing it to wait for the next idle event.
     ///
-    /// The idle manager does not refresh the state automatically; this explicit call ensures that
-    /// the caller waits for the state to change only after the previous idle state has been handled.
+    /// The idle manager does not refresh the state automatically; this explicit
+    /// call ensures that the caller waits for the state to change only
+    /// after the previous idle state has been handled.
     pub(crate) fn reset_idle_state(&mut self) {
         self.idle_notifier.was_idled = false;
     }

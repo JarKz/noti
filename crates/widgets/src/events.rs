@@ -288,7 +288,8 @@ impl EventManager {
                 }
             }
             RawEventKind::MouseLeave => {
-                // INFO: Mouse leave does not make pending events, so ignore this part.
+                // INFO: Mouse leave does not make pending events, so ignore
+                // this part.
             }
         }
     }
@@ -419,7 +420,8 @@ impl EventRouter {
         }
     }
 
-    /// Deletes last node only and only if it has matching widget_id and its capabilities is empty.
+    /// Deletes last node only and only if it has matching widget_id and its
+    /// capabilities is empty.
     fn remove_missed_last_node(&mut self, widget_id: WidgetId) {
         if self
             .path
@@ -545,8 +547,9 @@ where
 
     fn route_events(&mut self, context: &mut C, router: &EventRouter) {
         let Some(metadata) = router.get_metadata(self.get_id()) else {
-            // INFO: possibly widget tries to route to next child widget and it not persisted as event
-            // node in path, therefore we ignore it.
+            // INFO: possibly widget tries to route to next child widget and it
+            // not persisted as event node in path, therefore we
+            // ignore it.
             return;
         };
 

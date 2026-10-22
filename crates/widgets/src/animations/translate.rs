@@ -9,9 +9,10 @@ use crate::{
 
 /// A translation animation effect for widgets.
 ///
-/// This effect smoothly moves a widget from its start position to an end position.
-/// Unlike [`super::fade::Fade`] and [`super::pop::Pop`], translation has no direction type: it always
-/// progresses from start → end. The movement curve is determined by the [`Easing`] function.
+/// This effect smoothly moves a widget from its start position to an end
+/// position. Unlike [`super::fade::Fade`] and [`super::pop::Pop`], translation
+/// has no direction type: it always progresses from start → end. The movement
+/// curve is determined by the [`Easing`] function.
 ///
 /// The start and end points are stored in the underlying shader builder, so
 /// the animation struct itself only tracks timing and easing.

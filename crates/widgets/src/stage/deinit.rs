@@ -1,16 +1,17 @@
 //! Deinitialization stage of a widget.
 //!
-//! The last stage in widget's lifecycle, freeing its runtime data that belongs to a Context.
-//! To allow a widget to be deinitialized, apply [Deinit] trait to it. In case of existing a runtime
-//! resource that not belongs to a Context or needed to be manually unlinked, implement the
-//! [Deinit::on_deinit] method to free this data.
+//! The last stage in widget's lifecycle, freeing its runtime data that belongs
+//! to a Context. To allow a widget to be deinitialized, apply [Deinit] trait to
+//! it. In case of existing a runtime resource that not belongs to a Context or
+//! needed to be manually unlinked, implement the [Deinit::on_deinit] method to
+//! free this data.
 
 use crate::{
     context::{
         ClearWidgetResources, ManageAnimationRegistry, StateLifetimeManagement, StateSubscription,
         UnregisterKey,
     },
-    types::{identifiers::WidgetKey, WidgetId},
+    types::{WidgetId, identifiers::WidgetKey},
     widget::{WidgetBase, WidgetInformationContext},
 };
 
@@ -36,12 +37,12 @@ impl<C> DeinitContext for C where
 
 /// Applies the Deinit trait to a widget.
 ///
-/// A widget with Deinit trait can be freed from a Context with clearing all related runtime resources.
-/// Since all runtime data of a widget belongs to a Context, it can be freed without manipulating
-/// the data.
+/// A widget with Deinit trait can be freed from a Context with clearing all
+/// related runtime resources. Since all runtime data of a widget belongs to a
+/// Context, it can be freed without manipulating the data.
 ///
-/// But if a widget have some unrelated to a Context runtime data or related to it states, better to free
-/// it implementing the [Deinit::on_deinit] method.
+/// But if a widget have some unrelated to a Context runtime data or related to
+/// it states, better to free it implementing the [Deinit::on_deinit] method.
 pub trait Deinit<C>: WidgetBase<C>
 where
     C: DeinitContext,

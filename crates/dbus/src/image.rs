@@ -18,7 +18,8 @@ pub struct ImageData {
     /// Indicates whether the image has an alpha channel.
     pub has_alpha: bool,
 
-    /// Number of bits per sample. Must always be 8 according to the specification.
+    /// Number of bits per sample. Must always be 8 according to the
+    /// specification.
     pub bits_per_sample: i32,
 
     /// Number of channels. Must be 4 if `has_alpha` is true, otherwise 3.
@@ -26,8 +27,9 @@ pub struct ImageData {
 
     /// File descriptor containing the image data in RGB byte order.
     ///
-    /// To avoid storing large data in RAM, the image is stored in a temporary file.
-    /// The file is automatically removed when no handles reference it.
+    /// To avoid storing large data in RAM, the image is stored in a temporary
+    /// file. The file is automatically removed when no handles reference
+    /// it.
     pub image_file_descriptor: FileDescriptor,
 }
 

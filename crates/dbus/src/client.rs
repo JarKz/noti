@@ -1,6 +1,7 @@
-use log::debug;
 use std::collections::HashMap;
-use zbus::{proxy, zvariant::Value, Connection};
+
+use log::debug;
+use zbus::{Connection, proxy, zvariant::Value};
 
 /// Proxy for the D-Bus notification endpoint.
 ///
@@ -26,7 +27,8 @@ pub trait Notifications {
     async fn get_server_information(&self) -> anyhow::Result<(String, String, String, String)>;
 }
 
-/// Represents a client connected to a D-Bus notification server via a specified endpoint.
+/// Represents a client connected to a D-Bus notification server via a specified
+/// endpoint.
 pub struct Client<'a> {
     proxy: NotificationsProxy<'a>,
 }

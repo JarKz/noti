@@ -24,7 +24,7 @@ impl<T> Data<T, Owned> {
     /// Creates a new `Data<T>` smart pointer.
     pub fn new(value: T) -> Self {
         Self {
-            rc: Rc::new(unsafe { NonNull::new_unchecked(Box::into_raw(Box::new(value))) }),
+            rc: Rc::new(Box::into_non_null(Box::new(value))),
             _status: Owned,
         }
     }
@@ -58,7 +58,8 @@ impl<T> std::ops::Deref for Data<T, Owned> {
 
 impl<T> std::ops::DerefMut for Data<T, Owned> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        // SAFETY: the pointer and re-referencing are valid because the `Data` owns value
+        // SAFETY: the pointer and re-referencing are valid because the `Data`
+        // owns value
         unsafe { &mut *self.rc.as_ref().as_ptr() }
     }
 }
@@ -67,8 +68,9 @@ impl<T> std::ops::Deref for Data<T, Borrowed> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        // SAFETY: the `Data` doesn't implements Send and Sync traits. Therefore there is no
-        // implicit modification of data. Just borrowing as RefCell do.
+        // SAFETY: the `Data` doesn't implements Send and Sync traits. Therefore
+        // there is no implicit modification of data. Just borrowing as
+        // RefCell do.
         unsafe { self.rc.as_ref().as_ref() }
     }
 }

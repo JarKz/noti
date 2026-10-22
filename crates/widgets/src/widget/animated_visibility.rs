@@ -6,11 +6,10 @@ use shared::unique::Unique;
 use crate::{
     animations::{AnimationFilter, AnimationKind, Easing},
     context::{
-        widget_data, widget_data_mut, AnimationDirection, AnimationProgress,
-        ManageAnimationRegistry, ManageIntrinsic, ScopedContext, StateLifetimeManagement,
-        StateSubscription,
+        AnimationDirection, AnimationProgress, ManageAnimationRegistry, ManageIntrinsic,
+        ScopedContext, StateLifetimeManagement, StateSubscription, widget_data, widget_data_mut,
     },
-    decorator::{content::Content, DecoratorExt, EventHitTestDecorator},
+    decorator::{DecoratorExt, EventHitTestDecorator, content::Content},
     events::{EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult, PendingEvent},
     stage::{
         deinit::{Deinit, DeinitContext},
@@ -21,7 +20,7 @@ use crate::{
         measure::{Constraints, Intrinsic, ManageMeasures, Measure, MeasureContext, SizingMode},
     },
     state::State,
-    types::{dirty_flags::DirtyFlags, identifiers::WidgetKey, Extent, Offset, Point, WidgetId},
+    types::{Extent, Offset, Point, WidgetId, dirty_flags::DirtyFlags, identifiers::WidgetKey},
     widget::{WidgetGetType, WidgetInformationContext, WidgetSizingMode},
 };
 

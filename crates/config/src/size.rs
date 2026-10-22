@@ -1,6 +1,6 @@
 use std::{collections::HashMap, marker::PhantomData};
 
-use serde::{de::Visitor, Deserialize};
+use serde::{Deserialize, de::Visitor};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Size {

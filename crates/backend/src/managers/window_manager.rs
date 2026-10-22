@@ -1,4 +1,5 @@
-use crate::{dispatcher::Dispatcher, error::Error, EglState, NoSurface};
+use std::{collections::VecDeque, path::PathBuf};
+
 use cache::CachedLayout;
 use config::Config;
 use dbus::{actions::Signal, notification::Notification};
@@ -8,10 +9,9 @@ use shared::{
     data::{Borrowed, Data, Owned},
 };
 use skia_safe::gpu::DirectContext;
-use std::{collections::VecDeque, path::PathBuf};
 use wayland_client::{
-    protocol::{wl_compositor::WlCompositor, wl_seat::WlSeat, wl_shm::WlShm},
     Connection,
+    protocol::{wl_compositor::WlCompositor, wl_seat::WlSeat, wl_shm::WlShm},
 };
 use wayland_protocols::wp::{
     cursor_shape::v1::client::wp_cursor_shape_manager_v1::WpCursorShapeManagerV1,
@@ -20,13 +20,16 @@ use wayland_protocols::wp::{
 use wayland_protocols_wlr::layer_shell::v1::client::zwlr_layer_shell_v1::ZwlrLayerShellV1;
 use window::Window;
 
+use crate::{EglState, NoSurface, dispatcher::Dispatcher, error::Error};
+
 mod audio_playback;
 mod banner_stack;
 mod cache;
 mod window;
 
-/// Manages application windows through a convenient API, abstracting away explicit window
-/// management and providing high-level access to window-related operations.
+/// Manages application windows through a convenient API, abstracting away
+/// explicit window management and providing high-level access to window-related
+/// operations.
 ///
 /// Also this struct stores shared data between windows.
 pub(crate) struct WindowManager {
@@ -42,7 +45,8 @@ pub(crate) struct WindowManager {
 }
 
 impl WindowManager {
-    /// Initializes the window manager and loads layouts and fonts into the cache.
+    /// Initializes the window manager and loads layouts and fonts into the
+    /// cache.
     pub(crate) fn init(config: &Config) -> anyhow::Result<Self> {
         let cached_layouts = Data::new(
             config
@@ -94,8 +98,8 @@ impl WindowManager {
         self.cached_layouts.update()
     }
 
-    /// Updates the shared data and cache with the new user configuration. If any windows are open,
-    /// they are updated as well.
+    /// Updates the shared data and cache with the new user configuration. If
+    /// any windows are open, they are updated as well.
     pub(crate) fn update_by_config(&mut self, config: Data<Config, Borrowed>) -> Result<(), Error> {
         self.cached_layouts.extend_by_keys(
             config
@@ -186,9 +190,9 @@ impl WindowManager {
         self.window.is_some()
     }
 
-    /// Notification management in the window manager is queue-based. Replacing a notification by ID
-    /// bypasses the queue limit; other notifications will be added to the window until the limit is
-    /// reached.
+    /// Notification management in the window manager is queue-based. Replacing
+    /// a notification by ID bypasses the queue limit; other notifications
+    /// will be added to the window until the limit is reached.
     ///
     /// In case the window does not exist, these actions are not performed.
     fn process_notification_queue(&mut self, config: Data<Config, Borrowed>) -> Result<(), Error> {
@@ -213,7 +217,8 @@ impl WindowManager {
         Ok(())
     }
 
-    /// Handles requests from external applications to close notifications by ID.
+    /// Handles requests from external applications to close notifications by
+    /// ID.
     ///
     /// Other kinds of notification closing are not handled here.
     pub(crate) fn handle_close_notifications(&mut self) -> Result<(), Error> {
@@ -259,8 +264,8 @@ impl WindowManager {
 
     /// Resets the timeout for all notifications.
     ///
-    /// This is useful when the configuration is updated with new values or other important
-    /// changes related to notifications occur.
+    /// This is useful when the configuration is updated with new values or
+    /// other important changes related to notifications occur.
     pub(crate) fn reset_timeouts(&mut self) -> anyhow::Result<()> {
         if let Some(window) = self.window.as_mut() {
             window.reset_timeouts();

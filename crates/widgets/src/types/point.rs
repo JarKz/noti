@@ -84,8 +84,8 @@ where
     T: Default + Copy + FromPrimitive,
 {
     fn from(value: Spacing) -> Self {
-        // INFO: since our coordinate system is placed at top left corner, we use top and left
-        // offstes
+        // INFO: since our coordinate system is placed at top left corner, we
+        // use top and left offstes
         let x = T::from_usize(value.left).unwrap_or_default();
         let y = T::from_usize(value.top).unwrap_or_default();
 

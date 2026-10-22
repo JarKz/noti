@@ -37,8 +37,9 @@ impl From<File> for FileDescriptor {
 impl Drop for FileDescriptor {
     fn drop(&mut self) {
         if Arc::strong_count(&self.0) == 1 {
-            // SAFETY: the struct guarantees that there will not be a close for file if the count
-            // of handlers more than one. So at last drop file will be closed.
+            // SAFETY: the struct guarantees that there will not be a close for
+            // file if the count of handlers more than one. So at
+            // last drop file will be closed.
             unsafe {
                 File::from_raw_fd(*self.0);
             }
@@ -51,7 +52,8 @@ impl Drop for FileDescriptor {
 ///
 /// `FileGuard` provides access to permitted methods like `read` and `write`,
 /// while ensuring that the underlying file remains open. Even if the original
-/// `FileDescriptor` is dropped, the file will stay open as long as a `FileGuard` exists.
+/// `FileDescriptor` is dropped, the file will stay open as long as a
+/// `FileGuard` exists.
 pub struct FileGuard {
     file: ManuallyDrop<File>,
     _file_descriptor: FileDescriptor,

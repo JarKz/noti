@@ -9,18 +9,18 @@ const DEFAULT_MASKS: WatchMask = WatchMask::MOVE_SELF
 
 type FilePath = PathBuf;
 
-/// Watches a prioritized list of files for changes and provides convenient access
-/// to the current file data.
+/// Watches a prioritized list of files for changes and provides convenient
+/// access to the current file data.
 ///
-/// `FilesWatcher` tracks a list of possible files in order of priority (left to right),
-/// but internally only works with the first available file. If the currently tracked
-/// file changes or a higher-priority file becomes available, the watcher considers
-/// the data as updated.
+/// `FilesWatcher` tracks a list of possible files in order of priority (left to
+/// right), but internally only works with the first available file. If the
+/// currently tracked file changes or a higher-priority file becomes available,
+/// the watcher considers the data as updated.
 ///
 /// This struct uses `inotify` internally to detect file changes efficiently,
 /// but the user-facing API abstracts away these details.
-/// Even if none of the files in the list exist, `FilesWatcher` handles it gracefully
-/// and returns `None` as the current data.
+/// Even if none of the files in the list exist, `FilesWatcher` handles it
+/// gracefully and returns `None` as the current data.
 #[derive(Debug)]
 pub struct FilesWatcher {
     inotify: Inotify,
@@ -31,10 +31,11 @@ pub struct FilesWatcher {
 impl FilesWatcher {
     /// Initializes a `FilesWatcher` from a list of file paths.
     ///
-    /// The paths are treated in priority order: the first path has the highest priority,
-    /// the second path has lower priority, and so on.  
-    /// The watcher will track the first available file according to this order and
-    /// consider the data updated if the file changes or a higher-priority file becomes available.
+    /// The paths are treated in priority order: the first path has the highest
+    /// priority, the second path has lower priority, and so on.  
+    /// The watcher will track the first available file according to this order
+    /// and consider the data updated if the file changes or a
+    /// higher-priority file becomes available.
     pub fn init<T: AsRef<Path>>(paths: Vec<T>) -> anyhow::Result<Self> {
         assert!(
             !paths.is_empty(),
@@ -71,11 +72,12 @@ impl FilesWatcher {
         })
     }
 
-    /// Returns the path of the file currently being tracked by the `FilesWatcher`.
+    /// Returns the path of the file currently being tracked by the
+    /// `FilesWatcher`.
     ///
-    /// `FilesWatcher` does not read the file itself; it only identifies which file
-    /// from the prioritized list should be used. The caller is responsible for
-    /// opening and reading the file data.
+    /// `FilesWatcher` does not read the file itself; it only identifies which
+    /// file from the prioritized list should be used. The caller is
+    /// responsible for opening and reading the file data.
     pub fn get_watching_path(&self) -> Option<&Path> {
         self.file_wd
             .as_ref()
@@ -84,11 +86,11 @@ impl FilesWatcher {
 
     /// Checks the highest-priority available file for updates.
     ///
-    /// The caller is responsible for reading the file data if changes are detected.
-    /// [`FilesWatcher`] only tracks which file should be used and detects changes; it
-    /// does not read or cache file contents.
+    /// The caller is responsible for reading the file data if changes are
+    /// detected. [`FilesWatcher`] only tracks which file should be used and
+    /// detects changes; it does not read or cache file contents.
     pub fn check_updates(&mut self) -> FileState {
-        let state = if let Some(file_path) = self.paths.iter().find(|path| path.is_file()) {
+        if let Some(file_path) = self.paths.iter().find(|path| path.is_file()) {
             if self
                 .file_wd
                 .as_ref()
@@ -97,9 +99,11 @@ impl FilesWatcher {
                 let state = self.inotify.handle_events();
 
                 if state.is_not_found() {
-                    // INFO: The file path is available, but the watch descriptor thinks the file
-                    // was moved or deleted earlier. So we don’t give a fuck and just recreate
-                    // the watch descriptor with the current file path.
+                    // INFO: The file path is available, but the watch
+                    // descriptor thinks the file
+                    // was moved or deleted earlier. So we don’t give a fuck and
+                    // just recreate the watch descriptor
+                    // with the current file path.
 
                     self.inotify.destroy_wd(self.file_wd.take());
                     self.file_wd = Some(self.inotify.new_wd(file_path));
@@ -108,8 +112,9 @@ impl FilesWatcher {
                     state
                 }
             } else {
-                // INFO: A different file from the prioritized list is now available.
-                // Recreate the watch descriptor using this new file path.
+                // INFO: A different file from the prioritized list is now
+                // available. Recreate the watch descriptor
+                // using this new file path.
 
                 self.inotify.destroy_wd(self.file_wd.take());
                 self.file_wd = Some(self.inotify.new_wd(file_path));
@@ -118,9 +123,7 @@ impl FilesWatcher {
         } else {
             self.inotify.destroy_wd(self.file_wd.take());
             FileState::NotFound
-        };
-
-        state
+        }
     }
 }
 
@@ -144,7 +147,8 @@ impl FileState {
 
     /// Returns a numeric priority for this `FileState`.
     ///
-    /// Higher numbers indicate states that should take precedence over lower ones.
+    /// Higher numbers indicate states that should take precedence over lower
+    /// ones.
     fn priority(&self) -> u8 {
         match self {
             FileState::NotFound => 2,
@@ -189,24 +193,26 @@ impl FileWd {
     }
 }
 
-/// An extension trait for [`Inotify`] providing specialized file-watching logic.
+/// An extension trait for [`Inotify`] providing specialized file-watching
+/// logic.
 ///
-/// This trait adds higher-level functionality for managing watch descriptors and
-/// handling file changes in a prioritized and safe way. It uses [`FileWd`] to tie
-/// a watch descriptor to its corresponding path and returns [`FileState`] to indicate
-/// changes.
+/// This trait adds higher-level functionality for managing watch descriptors
+/// and handling file changes in a prioritized and safe way. It uses [`FileWd`]
+/// to tie a watch descriptor to its corresponding path and returns
+/// [`FileState`] to indicate changes.
 trait InotifySpecialization {
-    /// Creates a new [`FileWd`] for the given path, registering it with inotify and
-    /// associating it with the file path for easier management.
+    /// Creates a new [`FileWd`] for the given path, registering it with inotify
+    /// and associating it with the file path for easier management.
     fn new_wd(&self, path: &FilePath) -> FileWd;
 
-    /// Removes the specified watch descriptor, if any, from inotify. This is useful
-    /// when a file is deleted, moved, or replaced, ensuring that stale descriptors
-    /// are cleaned up properly.
+    /// Removes the specified watch descriptor, if any, from inotify. This is
+    /// useful when a file is deleted, moved, or replaced, ensuring that
+    /// stale descriptors are cleaned up properly.
     fn destroy_wd(&self, file_wd: Option<FileWd>);
 
-    /// Processes events from the inotify queue and returns a [`FileState`] representing
-    /// the current status of the highest-priority available file.
+    /// Processes events from the inotify queue and returns a [`FileState`]
+    /// representing the current status of the highest-priority available
+    /// file.
     fn handle_events(&mut self) -> FileState;
 }
 

@@ -5,26 +5,26 @@ use macros::widget;
 use crate::{
     context::{LoadExtent, ManageIntrinsic},
     decorator::{
-        content::Content, DecoratorExt, DrawDecorator, EventHitTestDecorator, LayoutDecorator,
-        MeasureDecorator,
+        DecoratorExt, DrawDecorator, EventHitTestDecorator, LayoutDecorator, MeasureDecorator,
+        content::Content,
     },
     events::{EventContext, EventHandling, EventHitTest, EventRouter, HitTestResult, PendingEvent},
     stage::{
         deinit::{Deinit, DeinitContext},
-        draw::{draw_debug_bounds, Draw, DrawContext, Drawer},
+        draw::{Draw, DrawContext, Drawer, draw_debug_bounds},
         init::{Init, InitContext},
         invalidate::{Invalidate, InvalidateContext, RebuildStatus},
         layout::{Layout, LayoutContext},
         measure::{self, Constraints, ManageMeasures, Measure, MeasureContext, SizingMode},
     },
     types::{
+        DirtyFlags, Point,
         alignment::Position,
         direction::Direction,
         extent::{Extent, FlexExtent},
         identifiers::{WidgetId, WidgetKey},
         offset::Offset,
         spacing::Spacing,
-        DirtyFlags, Point,
     },
     widget::{WidgetGetType, WidgetInformationContext, WidgetSizingMode},
 };
@@ -36,8 +36,8 @@ use crate::{
 /// The container is responsible for:
 /// * Compiling each child widget and determining its size.
 /// * Shrinking the available space as children are placed.
-/// * Arranging children according to the configured [`Alignment`]
-///   on both the main and cross axis.
+/// * Arranging children according to the configured [`Alignment`] on both the
+///   main and cross axis.
 ///
 /// This type is intentionally lightweight — it does not implement the
 /// full CSS flexbox algorithm, but provides enough flexibility to build
@@ -68,9 +68,11 @@ impl FlexBox {
         self.direction.unwrap_or_default()
     }
 
-    /// Calculates the total space required by all children with spacing along a specific axis.
+    /// Calculates the total space required by all children with spacing along a
+    /// specific axis.
     ///
-    /// - **Horizontal Direction:** the sum of all children's widths and spacings between them.
+    /// - **Horizontal Direction:** the sum of all children's widths and
+    ///   spacings between them.
     /// - **Vertical Direction:** the width of the widest child.
     pub(crate) fn content_width<C>(&self, context: &C) -> f32
     where
@@ -90,10 +92,12 @@ impl FlexBox {
         }
     }
 
-    /// Calculates the total space required by all children with spacing along a specific axis.
+    /// Calculates the total space required by all children with spacing along a
+    /// specific axis.
     ///
     /// - **Horizontal Direction:** the height of the tallest child.
-    /// - **Vertical Direction:** the sum of all children's heights and spacing between them.
+    /// - **Vertical Direction:** the sum of all children's heights and spacing
+    ///   between them.
     pub(crate) fn content_height<C>(&self, context: &C) -> f32
     where
         C: WidgetInformationContext + LoadExtent<f32, WidgetId>,
@@ -112,7 +116,8 @@ impl FlexBox {
         }
     }
 
-    /// Returns the total size occupied by children with spacing along the primary axis.
+    /// Returns the total size occupied by children with spacing along the
+    /// primary axis.
     ///
     /// The **Main Extent** follows the container's `direction` (e.g., total
     /// width in a row).
@@ -126,9 +131,11 @@ impl FlexBox {
         }
     }
 
-    /// Returns the total size occupied by children with spacing along the perpendicular axis.
+    /// Returns the total size occupied by children with spacing along the
+    /// perpendicular axis.
     ///
-    /// **Cross Extent** measures the "thickness" of the layout (e.g., the height of a row).
+    /// **Cross Extent** measures the "thickness" of the layout (e.g., the
+    /// height of a row).
     #[allow(unused)]
     fn cross_content_extent<C>(&self, context: &C) -> f32
     where
@@ -193,8 +200,10 @@ impl FlexBox {
                 if childrens_indices.len() <= 1 {
                     0.0
                 } else {
-                    // INFO: there's no needs for self.spacing, because during measurement the code
-                    // guarantess that there is available space equal or greater than self.spacing.
+                    // INFO: there's no needs for self.spacing, because during
+                    // measurement the code guarantess that
+                    // there is available space equal or greater than
+                    // self.spacing.
                     (plane.main.extent - main_content_extent)
                         / childrens_indices.len().saturating_sub(1) as f32
                 }
@@ -654,9 +663,10 @@ where
         if new_start >= self.main.start {
             self.main.start = new_start;
         } // INFO: otherwise a number wraps around and better do nothing, because we don't know
-          // which is the number type. In case of signed number (like i32), need to use formula
-          // `start += cut_len + new_start`, but in case of unsigned number (like u32), the formula
-          // changes to `start += cut_len - new_start`.
+        // which is the number type. In case of signed number (like i32), need
+        // to use formula `start += cut_len + new_start`, but in case of
+        // unsigned number (like u32), the formula changes to `start +=
+        // cut_len - new_start`.
 
         if self.main.extent < cut_len {
             self.main.extent -= self.main.extent;
@@ -697,8 +707,8 @@ where
 /// or Y (top-to-bottom), we just care about two things: where the ruler
 /// starts and how long it is.
 ///
-/// This is super helpful for layout containers that have direction of arranging children.
-/// By turning 2D coordinates into these simple segments, we can apply
+/// This is super helpful for layout containers that have direction of arranging
+/// children. By turning 2D coordinates into these simple segments, we can apply
 /// the same logic to both the "main" direction and the "cross" direction
 /// without getting confused.
 struct AxisSegment<T>

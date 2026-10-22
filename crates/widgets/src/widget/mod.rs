@@ -6,6 +6,13 @@ pub mod flexbox;
 pub mod image;
 pub mod text;
 
+pub use r#box::{Box, BoxBuilder};
+pub use button::{Button, ButtonBuilder};
+pub use constrained_box::{ConstrainedBox, ConstrainedBoxBuilder};
+pub use flexbox::{FlexBox, FlexBoxBuilder};
+pub use image::{FitMode, Image, ImageBuilder, ImageInfo, MipmapMode, ResizingMethod};
+pub use text::{Font, FontStyle, Text, TextAlignment, TextBuilder};
+
 use crate::{
     context::{ManageDirtyFlags, ManageIntrinsic, ManageWidgetData, WidgetTreeAccess},
     events::{self, EventContext, EventHandling, EventHitTest},
@@ -20,18 +27,9 @@ use crate::{
         rebuild::WidgetDiff,
     },
     types::{
-        extent::Extent, identifiers::WidgetKey, offset::Offset, InputBehavior, Point, WidgetId,
+        InputBehavior, Point, WidgetId, extent::Extent, identifiers::WidgetKey, offset::Offset,
     },
     widget::animated_visibility::AnimatedVisibility,
-};
-
-pub use {
-    button::{Button, ButtonBuilder},
-    constrained_box::{ConstrainedBox, ConstrainedBoxBuilder},
-    flexbox::{FlexBox, FlexBoxBuilder},
-    image::{FitMode, Image, ImageBuilder, ImageInfo, MipmapMode, ResizingMethod},
-    r#box::{Box, BoxBuilder},
-    text::{Font, FontStyle, Text, TextAlignment, TextBuilder},
 };
 
 pub trait WidgetInformation {
@@ -77,8 +75,9 @@ where
 pub trait WidgetGetType {
     /// Returns the type of this widget as a human-readable string.
     ///
-    /// This is primarily intended for logging and debugging, allowing developers
-    /// to inspect which kind of widget is being processed at runtime.
+    /// This is primarily intended for logging and debugging, allowing
+    /// developers to inspect which kind of widget is being processed at
+    /// runtime.
     fn get_type(&self) -> &'static str;
 }
 
@@ -103,7 +102,9 @@ where
 {
     /// Returns the sizing policy of the widget.
     ///
-    /// This method is used to distinguish between widgets with pre-defined (fixed) dimensions and those that adapt their size dynamically based on the layout context.
+    /// This method is used to distinguish between widgets with pre-defined
+    /// (fixed) dimensions and those that adapt their size dynamically based on
+    /// the layout context.
     fn sizing_mode(&self, context: &C) -> SizingMode;
 }
 
@@ -229,8 +230,9 @@ impl WidgetInformation for WidgetEnum {
 impl WidgetGetType for WidgetEnum {
     /// Returns the type of this widget as a human-readable string.
     ///
-    /// This is primarily intended for logging and debugging, allowing developers
-    /// to inspect which kind of widget is being processed at runtime.
+    /// This is primarily intended for logging and debugging, allowing
+    /// developers to inspect which kind of widget is being processed at
+    /// runtime.
     fn get_type(&self) -> &'static str {
         delegate!(self.get_type())
     }

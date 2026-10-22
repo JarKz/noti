@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use quote::ToTokens;
-use syn::{ext::IdentExt, parse::Parse, spanned::Spanned, Ident, Token};
+use syn::{Ident, Token, ext::IdentExt, parse::Parse, spanned::Spanned};
 
 #[derive(Clone)]
 pub struct Structure {
@@ -84,7 +84,9 @@ where
         else {
             return Err(syn::Error::new(
                 proc_macro2::Span::call_site(),
-                format!("Expected #[{attribute_name}(name(StructName))] as outer attribute but it isn't provided"),
+                format!(
+                    "Expected #[{attribute_name}(name(StructName))] as outer attribute but it isn't provided"
+                ),
             ));
         };
         let struct_info = syn::parse2(attribute_tokens(outer_attribute, attribute_name)?)?;
@@ -112,10 +114,10 @@ where
 }
 
 fn matches(attribute: &syn::Attribute, attribute_name: &str) -> bool {
-    if let syn::Meta::List(meta_list) = &attribute.meta {
-        if meta_list.path.is_ident(attribute_name) {
-            return true;
-        }
+    if let syn::Meta::List(meta_list) = &attribute.meta
+        && meta_list.path.is_ident(attribute_name)
+    {
+        return true;
     }
 
     false
@@ -191,10 +193,10 @@ impl ExpectIdent for syn::Field {
 }
 
 pub(crate) fn is_option(ty: &syn::Type) -> bool {
-    if let syn::Type::Path(syn::TypePath { qself: None, path }) = ty {
-        if let Some(segment) = path.segments.last() {
-            return segment.ident == "Option";
-        }
+    if let syn::Type::Path(syn::TypePath { qself: None, path }) = ty
+        && let Some(segment) = path.segments.last()
+    {
+        return segment.ident == "Option";
     }
 
     false

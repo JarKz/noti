@@ -7,15 +7,17 @@ use crate::{
         AnimationQuery, LoadConstraints, LoadExtent, ManageConstraints, ManageDirtyFlags,
         ManageExtent, ManageIntrinsic, SaveConstraints, SaveExtent,
     },
-    types::{dirty_flags::DirtyFlags, Extent, Spacing, WidgetId},
+    types::{Extent, Spacing, WidgetId, dirty_flags::DirtyFlags},
     widget::{WidgetInformation, WidgetInformationContext},
 };
 
 pub enum SizingMode {
-    /// Widget size does not depend on content, parent constraints, or children sizes.
+    /// Widget size does not depend on content, parent constraints, or children
+    /// sizes.
     Fixed,
 
-    /// Widget size may depend on content, parent constraints, or children sizes.
+    /// Widget size may depend on content, parent constraints, or children
+    /// sizes.
     Dynamic,
 }
 

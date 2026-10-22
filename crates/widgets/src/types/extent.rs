@@ -3,9 +3,8 @@ use std::{
     ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign},
 };
 
-use crate::types::Direction;
-
 use super::spacing::Spacing;
+use crate::types::Direction;
 
 /// A simple way to describe the **size** of a flat area.
 ///

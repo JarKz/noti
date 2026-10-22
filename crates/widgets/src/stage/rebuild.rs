@@ -27,8 +27,9 @@ impl RebuildContext {
     }
 }
 
-/// It assumes that both of widget trees (main and pending) have unique [WidgetKey]s. In this case,
-/// there must only both unique [NodeId] for each [WidgetKey].
+/// It assumes that both of widget trees (main and pending) have unique
+/// [WidgetKey]s. In this case, there must only both unique [NodeId] for each
+/// [WidgetKey].
 #[derive(Default, Debug)]
 struct MatchedKeyedNodes {
     keyed_nodes: HashMap<WidgetKey, MatchedNodes>,

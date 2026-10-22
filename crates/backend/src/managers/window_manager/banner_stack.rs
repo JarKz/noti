@@ -1,13 +1,13 @@
-use config::{display::DisplayConfig, size::Size, Config};
+use std::{cmp::Ordering, collections::VecDeque, hash::Hash, path::PathBuf, time};
+
+use config::{Config, display::DisplayConfig, size::Size};
 use dbus::{actions::ClosingReason, notification::Notification};
 use indexmap::{
-    indexmap,
+    IndexMap, indexmap,
     map::{Iter, Values, ValuesMut},
-    IndexMap,
 };
 use log::{debug, trace, warn};
 use shared::text;
-use std::{cmp::Ordering, collections::VecDeque, hash::Hash, path::PathBuf, time};
 use widgets::{
     self,
     animations::AnimationKind,
@@ -20,14 +20,14 @@ use widgets::{
     state::MutableState,
     types::{Alignment, Border, Direction, Point, Position, Spacing},
     widget::{
+        Button, ConstrainedBox, FlexBox, Image, Text,
         animated_visibility::{AnimatedVisibility, AnimationDefinition},
         image::ImageProvider,
-        Button, ConstrainedBox, FlexBox, Image, Text,
     },
 };
 
 use crate::managers::window_manager::audio_playback::{
-    decode_from_sound_name, decode_from_sound_path, AudioPlayback,
+    AudioPlayback, decode_from_sound_name, decode_from_sound_path,
 };
 
 /// The container of banners which allows manage them easily.
@@ -60,7 +60,8 @@ where
         self.banners.get_mut(key)
     }
 
-    /// Updates the banner stack and banners by newly updated user configuration.
+    /// Updates the banner stack and banners by newly updated user
+    /// configuration.
     pub(super) fn configure(&mut self, config: &Config, context: &mut Context) {
         self.sort_by_config(config);
         self.banners_mut()
@@ -123,8 +124,9 @@ impl BannerStack<u32> {
         self.sort_by_config(config);
     }
 
-    /// Extends current container with new banners that will be created from notification. Note
-    /// that existing banner with the same notification id will be replaced.
+    /// Extends current container with new banners that will be created from
+    /// notification. Note that existing banner with the same notification
+    /// id will be replaced.
     pub(super) fn extend_from<I>(
         &mut self,
         notifications: I,

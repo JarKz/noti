@@ -1,7 +1,6 @@
 mod cli;
 
 use clap::Parser;
-
 use cli::Args;
 
 #[cfg(feature = "libc_alloc")]

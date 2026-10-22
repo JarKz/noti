@@ -1,8 +1,8 @@
+use std::{cmp::Reverse, collections::BinaryHeap};
+
 use chrono::{DateTime, Local, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use dbus::notification::ScheduledNotification;
 use log::{debug, warn};
-use std::cmp::Reverse;
-use std::collections::BinaryHeap;
 
 pub struct Scheduler {
     queue: BinaryHeap<Reverse<ScheduledNotification>>,
@@ -20,7 +20,7 @@ impl Scheduler {
             Ok(parsed_time) => {
                 debug!(
                     "Successfully parsed time '{}' for scheduling: {}",
-                    &notification.time, &parsed_time
+                    notification.time, parsed_time
                 );
 
                 let scheduled_notification = ScheduledNotification {
@@ -32,7 +32,7 @@ impl Scheduler {
             Err(e) => {
                 warn!(
                     "Failed to parse time '{}' for notification with id '{}': {}",
-                    &notification.time, &notification.data.id, e
+                    notification.time, notification.data.id, e
                 );
             }
         }
