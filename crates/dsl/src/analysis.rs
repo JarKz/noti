@@ -201,9 +201,7 @@ impl SemanticScope {
             let widget_declaration =
                 CompiledTypeDeclaration::from_widget_declaration(widget_declaration, self)?;
 
-            for (name, value) in widget_declaration.fields {
-                compiled_type_declaration.fields.insert(name, value);
-            }
+            compiled_type_declaration.extend_fields(&widget_declaration);
 
             let mut compiled_widget_declaration = CompiledWidgetDeclaration {
                 subtable,
@@ -814,6 +812,16 @@ impl CompiledTypeDeclaration {
         }
 
         Ok(())
+    }
+
+    fn extend_fields(&mut self, other: &Self) {
+        for (name, value) in &other.fields {
+            self.fields.insert(name.clone(), value.clone());
+        }
+
+        for (name, span) in &other.field_spans {
+            self.field_spans.insert(name.clone(), *span);
+        }
     }
 }
 

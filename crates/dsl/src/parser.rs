@@ -1,5 +1,6 @@
 use lalrpop_util::lalrpop_mod;
 
+// TODO: allow more characters in string literal
 lalrpop_mod!(pub grammar);
 
 #[cfg(test)]
